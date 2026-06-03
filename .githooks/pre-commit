@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook for blocking content patterns that the maintainer prefers to
+# keep out of public commits.
+#
+# Patterns live in a local-only file at .git/local-patterns.txt (one pattern
+# per line; regular expression, case-insensitive). If that file does not
+# exist, this hook is a no-op.
+#
+# To activate this hook directory once per clone:
+#   git config core.hooksPath .githooks
+#
+# To configure patterns locally (not tracked by git):
+#   touch .git/local-patterns.txt
+#   echo "your-pattern-1" >> .git/local-patterns.txt
+#   echo "your-pattern-2" >> .git/local-patterns.txt
+
+set -uo pipefail
+
+PATTERNS_FILE=".git/local-patterns.txt"
+
+# No-op if the local patterns file does not exist.
+if [[ ! -f "$PATTERNS_FILE" ]]; then
+  exit 0
+fi
+
+# No-op if the patterns file is empty.
+if [[ ! -s "$PATTERNS_FILE" ]]; then
+  exit 0
+fi
+
+# Inspect only added/modified lines in staged content (not deletions, not diff
+# headers).
+ADDED=$(git diff --cached --diff-filter=ACMR -U0 | grep -E '^\+[^+]' || true)
+
+if [[ -z "$ADDED" ]]; then
+  exit 0
+fi
+
+# Match staged additions against local patterns. -i for case-insensitive,
+# -f to read patterns from file (one per line).
+MATCHES=$(echo "$ADDED" | grep -iEf "$PATTERNS_FILE" || true)
+
+if [[ -n "$MATCHES" ]]; then
+  echo ""
+  echo "Pre-commit hook: staged content matches a local pattern."
+  echo ""
+  echo "Matches (first 20 lines):"
+  echo "$MATCHES" | head -20
+  echo ""
+  echo "Either strip the matching content, or edit $PATTERNS_FILE if the match"
+  echo "is a false positive."
+  exit 1
+fi
+
+exit 0
