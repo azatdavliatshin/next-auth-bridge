@@ -10,6 +10,9 @@ chain), `.github/workflows/release.yml` (publish on merge to `main`), and
 covers only the steps that live *outside* the repo — secrets, branch rules, and the human
 sign-off — because those cannot be committed as files.
 
+For the day-to-day `dev → main` merge loop (how releases get *triggered*), see
+[dev-workflow.md](./dev-workflow.md).
+
 ---
 
 ## 1. npm authentication: token bootstrap, then Trusted Publishing (OIDC)
