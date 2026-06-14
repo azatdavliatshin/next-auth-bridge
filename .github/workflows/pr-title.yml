@@ -1,0 +1,37 @@
+name: pr-title
+
+# Validate that a pull-request title is a Conventional Commit. PRs are
+# squash-merged, so the PR title becomes the squash-merge subject that
+# semantic-release parses on merge to main — the local commit-msg hook cannot
+# cover that subject for external contributors, so this check closes the gap.
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+# pull_request_target reads the title from the event payload only; this workflow
+# never checks out or runs PR code. Least-privilege: read-only on pull-requests.
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Pinned to the full commit SHA of v6.1.1 for supply-chain hardening.
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            test
+            chore
+            build
+            ci
+            perf
+            style
