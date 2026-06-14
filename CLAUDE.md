@@ -24,7 +24,7 @@ Two long-lived branches:
 - **`main`** — the published surface. Tagged releases come from here. Modified only through pull requests; direct pushes are blocked by branch protection.
 - **`dev`** — the active engineering branch. Day-to-day work lands here, including work-in-progress notes, milestone planning, exploratory code, and unresolved decisions.
 
-On milestone completion, a clean PR branch is generated from `dev` (with internal planning artifacts filtered out) and opened against `main`. PRs are squash-merged. The maintainer's local tooling automates this filtering step.
+When a chunk of work is ready, a clean PR branch is generated from `dev` (with internal planning artifacts filtered out — `/gsd-pr-branch`) and opened against `main`. PRs are **rebase-merged** (the `main` ruleset requires linear history; rebasing keeps `dev`'s real commits on `main` so `main..dev` stays just the new work and the clean-branch step never has to replay history). The full loop, flags, and release/recovery gotchas are in [docs/dev-workflow.md](docs/dev-workflow.md).
 
 External contributors: fork the repo, branch from `main`, open PR against `main`. No need to engage with `dev`.
 
@@ -125,7 +125,7 @@ Each line in `.git/local-patterns.txt` is a case-insensitive regex. The hook che
 - Read `docs/threat-model.md` at session start (the invariant registry).
 - For non-trivial features: open an issue or draft a `dev`-branch design note before coding. Substantive engineering decisions are documented in PR descriptions or in `docs/`.
 - For implementing: branch from `dev` (maintainer) or `main` (external contributor). Commit using Conventional Commits.
-- For PR: squash-merge into target branch. CHANGELOG generation is automated.
+- For PR: rebase-merge into target branch (linear-history ruleset). CHANGELOG generation is automated. See [docs/dev-workflow.md](docs/dev-workflow.md).
 - Ad-hoc edits OK for typos, doc-only changes, and small bug fixes.
 
 <!-- GSD:project-start source:PROJECT.md -->
@@ -140,7 +140,7 @@ It is library-first. The reference example apps in this repo are the only determ
 
 **Core Value:** The popup-bridge (Mode A) pattern works end-to-end and is *deeply correct* — every threat-model invariant holds under negative-case test coverage. Correctness of the security-critical handoff is the one thing that cannot fail; breadth of transports and hosts is secondary.
 
-GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
+GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json) **on the `dev` branch only** — it is internal tooling state, never merged to `main` (the published surface carries only product: code, `docs/`, README, license). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
 
 <!-- GSD:project-end -->
 
