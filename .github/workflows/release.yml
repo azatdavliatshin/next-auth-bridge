@@ -1,0 +1,67 @@
+name: release
+
+# Publish next-auth-bridge to npm on merge to main. semantic-release derives the
+# next version from the Conventional-Commits history since the last tag, creates
+# the tag, generates the CHANGELOG, and publishes the package with a Sigstore
+# provenance attestation. Runs only on main: this is the published surface.
+
+on:
+  push:
+    branches: [main]
+
+# id-token: write is REQUIRED for npm provenance — without it the attestation is
+# silently dropped. contents: write lets @semantic-release/git push the CHANGELOG
+# and tag; issues/pull-requests: write let @semantic-release/github comment on
+# released issues and PRs.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    # GitHub-hosted runner is required for npm provenance attestation.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so semantic-release can read every tag and commit when
+          # deriving the next version.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          # Node >= 22.14 carries npm >= 11.5.1, the floor for npm Trusted
+          # Publishing (OIDC). This is the CI tooling floor, independent of the
+          # package engines value. registry-url wires the npm publish target.
+          node-version: 22.14
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter next-auth-bridge build
+
+      - name: Release
+        run: pnpm exec semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN is a temporary bootstrap for the FIRST publish only — a new
+          # package cannot use OIDC Trusted Publishing until it exists on the
+          # registry. After the first publish, configure a trusted publisher on
+          # npmjs.com (org azatdavliatshin / repo next-auth-bridge / workflow
+          # release.yml), then REMOVE the NPM_TOKEN line below and the secret: the
+          # npm CLI auto-uses OIDC via id-token: write. NPM_CONFIG_PROVENANCE can
+          # also be dropped then (OIDC generates provenance automatically). See
+          # docs/release-governance.md section 1, Phase B.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

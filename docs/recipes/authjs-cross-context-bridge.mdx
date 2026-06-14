@@ -1,0 +1,97 @@
+{/* Target slug for the authjs.dev PR: cross-context-iframe-bridge */}
+{/* Destination in nextauthjs/next-auth: docs/pages/guides/cross-context-iframe-bridge.mdx + a _meta.js entry. */}
+{/* This file is the in-repo source of record; the cross-repo PR copies it, adapting front-matter/imports to the authjs docs conventions. */}
+
+# Cross-context authentication for embedded Next.js apps
+
+When a Next.js / Auth.js app is embedded as an iframe inside an enterprise host —
+SharePoint, a Teams Tab, Salesforce Lightning, ServiceNow, Confluence/Jira — the host
+already carries an active identity-provider session, but the embedded app cannot reach it.
+Third-party cookie restrictions and the cross-origin boundary mean a normal sign-in flow
+either fails silently or forces the user through a redirect that the iframe cannot complete.
+
+[`next-auth-bridge`](https://www.npmjs.com/package/next-auth-bridge) solves this with a
+small, security-reviewed handoff: a popup runs in the top-level browser context, silent-auths
+against the host's existing IdP session, and hands the resulting session back to the embedded
+app through a one-time-use server-side transfer store — never through the URL.
+
+## The architecture
+
+The whole flow reduces to one shape: a server-side handle store mediates a one-time-code
+exchange across the trust boundary.
+
+1. The embedded app opens a popup. The popup runs **top-level** (not in the iframe), so it
+   can use the host's existing identity-provider session.
+2. The popup completes auth and calls the bridge route, which mints an **opaque 256-bit
+   one-time handle** and stores the session behind it in the transfer store.
+3. The popup posts the handle (never the session token) back to the opener via
+   `postMessage`, with origin checks on both ends.
+4. The opener redeems the handle at the consume route, which deletes it on first read and
+   sets the session cookie — a **partitioned (CHIPS) cookie** so it works inside the
+   embedded context.
+
+Security properties worth calling out, because they are what make this safe rather than a
+token-smuggling hack:
+
+- **No session token in a URL** — only the opaque handle ever crosses the boundary, and it
+  travels in a `postMessage` payload, never a query string or response body.
+- **One-time-use codes** — handles are 256-bit CSPRNG values, deleted on first read, with a
+  short TTL, so a replayed or leaked handle is inert.
+- **PKCE is preserved** through the handoff (Auth.js handles the OAuth exchange).
+- **`postMessage` origin checks** on both the popup and the opener.
+
+## Installation
+
+```bash
+npm install next-auth-bridge
+```
+
+## Wiring the bridge
+
+`createAuthBridge` takes one options object and returns both route handlers — `bridge` and
+`consume` — as Web-standard `(request) => Promise<Response>` functions. Wire them into your
+App Router route handlers:
+
+```ts
+// app/auth/bridge/route.ts
+import { createAuthBridge } from "next-auth-bridge";
+import { createInMemoryTransferStore } from "next-auth-bridge";
+import { auth } from "@/auth"; // your Auth.js instance
+
+const store = createInMemoryTransferStore(); // swap for a durable store in production
+
+const { bridge, consume } = createAuthBridge({
+  store,
+  verifySession: async () => (await auth())?.user ?? null,
+  allowedOrigins: ["https://your-app.example.com"],
+});
+
+export const GET = bridge;
+```
+
+```ts
+// app/auth/consume/route.ts
+// Re-export `consume` from the same single wiring (do not call createAuthBridge twice).
+export { consume as GET } from "../bridge/route";
+```
+
+The three required options are the irreducible wiring:
+
+- `store` — the transfer-store adapter. `createInMemoryTransferStore()` is the reference
+  implementation for development and tests; a durable adapter (e.g. the `./store/kv` subpath
+  export) backs production.
+- `verifySession` — returns the current session (or `null`); the bridge independently checks
+  for a real session before minting a handle.
+- `allowedOrigins` — the origins permitted in the `postMessage` exchange.
+
+A production transfer store is available behind the package's `./store/kv` subpath export:
+
+```ts
+import { createKVTransferStore } from "next-auth-bridge/store/kv";
+```
+
+## Where to go next
+
+The bridge handlers are framework-agnostic Web-standard functions, so the same wiring works
+anywhere App Router route handlers run. The popup and origin-check helpers are exported from
+the package root for apps that need to drive the popup flow directly.

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#
+# Commit-msg hook: validate the commit message subject against Conventional
+# Commits. Malformed subjects are rejected locally before push, so the history
+# that reaches `main` is clean for semantic-release to parse.
+#
+# The subject must look like:
+#   <type>[optional (scope)][optional !]: <description>
+#
+# Allowed types: feat, fix, docs, refactor, test, chore, build, ci, perf, style.
+# A trailing `!` marks a breaking change (the BREAKING CHANGE footer lives in the
+# body, not the subject). Merge / Revert / fixup! / squash! subjects pass through
+# untouched so rebases and merges are never blocked.
+#
+# To activate this hook directory once per clone:
+#   git config core.hooksPath .githooks
+
+set -uo pipefail
+
+# The first positional arg is the path to the file holding the commit message.
+SUBJECT=$(head -1 "$1")
+
+# Passthrough: git-generated subjects (merges, reverts, autosquash) are exempt.
+case "$SUBJECT" in
+  Merge*|Revert*|fixup!*|squash!*)
+    exit 0
+    ;;
+esac
+
+# Conventional Commits subject: type, optional (scope), optional !, ": ", then a
+# non-empty description. The scope is free-form per the spec (e.g. `feat(API):`),
+# so the scope class allows mixed case and path-like separators; only the type
+# stays lowercase by convention. This matches the CI pr-title check, which also
+# accepts uppercase scopes.
+CC_REGEX='^(feat|fix|docs|refactor|test|chore|build|ci|perf|style)(\([A-Za-z0-9._/-]+\))?(!)?: .+'
+
+if echo "$SUBJECT" | grep -Eq "$CC_REGEX"; then
+  exit 0
+fi
+
+echo ""
+echo "commit-msg hook: the commit subject is not a Conventional Commit."
+echo ""
+echo "  Subject: $SUBJECT"
+echo ""
+echo "Expected format:"
+echo "  <type>[optional (scope)][optional !]: <description>"
+echo ""
+echo "Allowed types:"
+echo "  feat, fix, docs, refactor, test, chore, build, ci, perf, style"
+echo ""
+echo "Examples:"
+echo "  feat: add the consume route"
+echo "  fix(store): delete the code on first read"
+echo "  feat!: drop the legacy cookie path"
+echo ""
+exit 1

@@ -1,0 +1,69 @@
+{
+  "name": "next-auth-bridge",
+  "version": "0.1.0",
+  "description": "Cross-context authentication bridge for Next.js / Auth.js (popup + PWA-shell transports) backed by a one-time-use transfer store.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./store/kv": {
+      "types": "./dist/store/kv.d.ts",
+      "import": "./dist/store/kv.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "import": "./dist/middleware.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsdown",
+    "prepack": "node scripts/copy-package-docs.mjs"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/azatdavliatshin/next-auth-bridge.git"
+  },
+  "homepage": "https://github.com/azatdavliatshin/next-auth-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/azatdavliatshin/next-auth-bridge/issues"
+  },
+  "keywords": [
+    "auth.js",
+    "next-auth",
+    "nextjs",
+    "authentication",
+    "iframe",
+    "chips",
+    "partitioned-cookies",
+    "pwa",
+    "passkeys",
+    "oauth"
+  ],
+  "peerDependencies": {
+    "@upstash/redis": "^1.38.0"
+  },
+  "peerDependenciesMeta": {
+    "@upstash/redis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "@upstash/redis": "^1.38.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^5",
+    "vitest": "^4.1.8"
+  }
+}

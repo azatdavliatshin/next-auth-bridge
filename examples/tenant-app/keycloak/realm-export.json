@@ -1,0 +1,59 @@
+{
+  "realm": "bridge-agnosticism",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "clients": [
+    {
+      "clientId": "bridge-test-client",
+      "name": "Bridge agnosticism test client",
+      "description": "Public client used by the browserless auth-code + PKCE (S256) CI login. Standard flow only; Direct Access Grants (ROPC) is disabled so the only viable login is the real PKCE auth-code dance.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:3000/auth/callback/keycloak",
+        "http://127.0.0.1:3000/auth/callback/keycloak"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "bridge-test-user",
+      "email": "bridge-test-user@example.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Bridge",
+      "lastName": "Tester",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bridge-test-password",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

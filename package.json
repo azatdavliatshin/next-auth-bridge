@@ -1,0 +1,21 @@
+{
+  "name": "next-auth-bridge-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.3.0",
+  "scripts": {
+    "test": "pnpm --filter next-auth-bridge test",
+    "build": "pnpm --filter next-auth-bridge build",
+    "release": "semantic-release"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.8",
+    "@semantic-release/npm": "^13.1.5",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "semantic-release": "^25.0.5"
+  }
+}
