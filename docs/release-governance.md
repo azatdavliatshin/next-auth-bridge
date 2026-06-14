@@ -55,23 +55,32 @@ bootstrap the first version with a token, then switch to OIDC and remove the tok
    from a machine logged into npm — which skips the CI token entirely. The token path is
    simpler if the release workflow is already wired.)
 
-### Phase B — switch to Trusted Publishing (immediately after the first publish)
+### Phase B — switch to Trusted Publishing (DONE 2026-06-14)
 
-Once `next-auth-bridge` exists on npm:
+Status: the trusted publisher is configured on npmjs.com and `release.yml` now
+authenticates via OIDC. Steps, for the record:
 
 1. On npmjs.com -> the package -> **Settings -> Trusted Publisher -> GitHub Actions**, set:
    - **Organization or user:** `azatdavliatshin`
    - **Repository:** `next-auth-bridge`
    - **Workflow filename:** `release.yml` (filename only, not a path)
    - **Allowed actions:** `npm publish`
-2. In `release.yml`, **remove the `NPM_TOKEN` env line** from the Release step (the npm CLI
-   auto-detects the OIDC environment when `id-token: write` is granted). `NPM_CONFIG_PROVENANCE`
-   can also be dropped — Trusted Publishing generates provenance automatically.
+2. In `release.yml`, the npm auth env is removed entirely. It is NOT enough to drop
+   only the `NPM_TOKEN` line: `setup-node`'s `registry-url` writes a managed `.npmrc`
+   that pins `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` and shadows OIDC,
+   so token auth would still win. The complete switch removed **all** of:
+   - `NPM_TOKEN` and `NODE_AUTH_TOKEN` env entries on the Release step,
+   - `registry-url` on the `setup-node` step,
+   - `NPM_CONFIG_PROVENANCE` (OIDC generates provenance automatically).
+   `id-token: write` stays; npm (>= 11.5.1 via Node 22.14) then auto-detects OIDC.
+   `RELEASE_TOKEN` is unaffected — it is the *git* push credential, not npm auth.
 3. **Delete the `NPM_TOKEN` repo secret** once a second release has published cleanly via OIDC:
 
    ```bash
    gh secret delete NPM_TOKEN --repo azatdavliatshin/next-auth-bridge
    ```
+
+   (Pending — keep the secret until the first OIDC publish is confirmed green, then delete.)
 
 4. For maximum hardening, on npm set the package's **Publishing access -> "Require
    two-factor authentication and disallow tokens"** so only Trusted Publishing (and
