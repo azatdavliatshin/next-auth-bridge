@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.1.0...v0.2.0) (2026-06-14)
+
+
+### Features
+
+* **examples:** public Keycloak popup-bridge demo + OIDC release publishing ([#5](https://github.com/azatdavliatshin/next-auth-bridge/issues/5)) ([5ad47b7](https://github.com/azatdavliatshin/next-auth-bridge/commit/5ad47b760edd9e4d657e544b1e47c9756a70bcaa))
+
 # [0.1.0](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.0.0...v0.1.0) (2026-06-14)
 
 
