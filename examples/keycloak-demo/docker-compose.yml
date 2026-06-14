@@ -1,0 +1,57 @@
+# Local-or-VPS persistent Keycloak for the popup-bridge demo (Part C).
+#
+# Pairs Keycloak with a Postgres volume so the bridge-example-app client secret
+# (generated at first realm import) survives restarts. With persistence you read
+# the secret once from the admin console and never need the pin-secret script.
+#
+# Run from the repo root:
+#   docker compose -f examples/keycloak-demo/docker-compose.yml up -d
+#
+# Then read the generated client secret (Part B) and set it as AUTH_KEYCLOAK_SECRET
+# in both Vercel projects. See DEPLOY.md.
+#
+# NOTE: the admin credentials below are demo placeholders. Override them via a
+# .env file or shell env before exposing this anywhere public.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+    volumes:
+      - keycloak-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start", "--import-realm"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-change-me-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      # The public HTTPS hostname the platform proxy serves. Override per deploy.
+      KC_HOSTNAME: ${KC_HOSTNAME:-https://your-keycloak.example.com}
+    ports:
+      - "8080:8080"
+      - "9000:9000"
+    volumes:
+      # Mount the canonical realm export (shared with tenant-app + CI) for import.
+      - ../tenant-app/keycloak:/opt/keycloak/data/import:ro
+
+volumes:
+  keycloak-pg:
