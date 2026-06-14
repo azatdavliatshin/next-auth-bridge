@@ -26,9 +26,16 @@ avoids that trap.)
 
 # 2. When a chunk is ready, build a clean PR branch (strips transient .planning/).
 /gsd-pr-branch
-#    → creates dev-<slug>-pr off main, .planning/ phases/quick/etc. removed,
-#      the 5 structural planning files (STATE/ROADMAP/PROJECT/REQUIREMENTS/config)
-#      left unchanged.
+#    → creates dev-<slug>-pr off main, with .planning/ removed.
+#
+#    NOTE for this repo: `main` carries NO `.planning/` at all — it is internal
+#    GSD tooling state that lives only on `dev`. /gsd-pr-branch by default keeps
+#    the "structural" files (STATE/ROADMAP/PROJECT/REQUIREMENTS/config), so after
+#    running it, strip those too before opening the PR:
+#        git rm -r --cached .planning/ 2>/dev/null; git commit --amend --no-edit
+#    (or just confirm `git diff --name-only main..HEAD | grep '^\.planning/'` is
+#    empty). The THREAT-NN definitions that used to point at .planning/REQUIREMENTS.md
+#    are self-contained in docs/threat-model.md, so nothing on main depends on .planning/.
 
 # 3. Push + open the PR. Title MUST be a Conventional Commit (the `validate` check).
 git push -u origin dev-<slug>-pr
