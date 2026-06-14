@@ -83,15 +83,30 @@ authenticates via OIDC. Steps, for the record:
    gh secret delete NPM_TOKEN --repo azatdavliatshin/next-auth-bridge
    ```
 
-   (Pending — keep the secret until the first OIDC publish is confirmed green, then delete.)
+   (v0.2.0 published via OIDC on 2026-06-14 — provenance attestation confirms the OIDC
+   path was used. The `NPM_TOKEN` fallback was retained in `release.yml` but not needed;
+   it can be removed and the secret deleted.)
 
 4. For maximum hardening, on npm set the package's **Publishing access -> "Require
    two-factor authentication and disallow tokens"** so only Trusted Publishing (and
    interactive 2FA) can publish.
 
 **Requirements for OIDC:** npm CLI >= 11.5.1 and Node >= 22.14.0 on the runner; cloud-hosted
-runners only (self-hosted is not yet supported). `release.yml` pins Node 22 with a patch >=
-22.14 so the bundled npm satisfies the floor.
+runners only (self-hosted is not yet supported).
+
+> **GOTCHA (cost a failed v0.2.0 run):** Node 22.14 does NOT bundle npm >= 11.5.1 — it ships
+> **npm 10.9.2**, below the OIDC publish floor. `@semantic-release/npm` does its own OIDC token
+> exchange (which succeeds), but the actual `npm publish` shells out to the *system* npm, which
+> at 10.9.2 cannot consume the OIDC credential and fails with `ENEEDAUTH`. `release.yml`
+> therefore has an explicit **`npm install -g npm@^11.5.1`** step before the release. Do not
+> assume a given Node bundles a recent enough npm — pin/upgrade npm explicitly.
+
+> **Recovery note:** if a release tags + pushes the CHANGELOG commit but the npm publish fails
+> (split-brain: tag exists, package unpublished), delete the tag (`git push origin :refs/tags/vX.Y.Z`),
+> revert the `chore(release): X.Y.Z` commit, fix the workflow, and re-run. semantic-release
+> re-cuts the version cleanly. Use the `workflow_dispatch` trigger (added to `release.yml`) to
+> re-run against current `main` — a bypass push to protected `main` does NOT fire `push`
+> workflows, and a merge whose body quotes `[skip ci]` suppresses them too.
 
 Provenance (`publishConfig.provenance: true` in `packages/core/package.json`) requires the
 workflow to run with `id-token: write`; that permission is already set in `release.yml` and
