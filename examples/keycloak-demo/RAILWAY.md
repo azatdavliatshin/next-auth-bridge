@@ -130,8 +130,10 @@ client's redirect/web-origins (step 8).
 
 ## 8. Close the loop: register the real Vercel origins
 
-The committed realm ships `<tenant-app>` / `<host-shell>` placeholders. Once the
-Vercel URLs exist, add the real ones. Two ways:
+The committed realm ships only the **localhost** redirect/web-origins (Keycloak
+validates redirect URIs at import time and rejects placeholder `<...>` values, so
+real origins can't be baked in before they exist). Once the Vercel URLs exist,
+**add** the real ones. Two ways:
 
 **A. Admin console (fastest, but lost on a fresh DB):** Clients →
 bridge-example-app → **Settings** → add to **Valid redirect URIs**:
@@ -147,12 +149,12 @@ https://<host-shell>.vercel.app
 Save.
 
 **B. Commit it (survives DB resets / redeploys):** edit
-`examples/tenant-app/keycloak/realm-export.json`, replace the `<tenant-app>` /
-`<host-shell>` placeholders with the real origins, commit, and push. Railway
-rebuilds — but note: `--import-realm` only imports a realm that does NOT already
-exist. With persistent Postgres the realm is already there, so the new export
-won't re-import automatically. To apply it you'd either update via the console
-(A) or, in the Keycloak service, run a one-off
+`examples/tenant-app/keycloak/realm-export.json`, **append** the real origins to
+the `bridge-example-app` `redirectUris` / `webOrigins` arrays (keep the localhost
+entries), commit, and push. Railway rebuilds — but note: `--import-realm` only
+imports a realm that does NOT already exist. With persistent Postgres the realm is
+already there, so the new export won't re-import automatically. To apply it you'd
+either update via the console (A) or, in the Keycloak service, run a one-off
 `kc.sh import --file /opt/keycloak/data/import/realm-export.json --override true`.
 For a demo, option A is fine; option B keeps git as the source of truth.
 

@@ -33,7 +33,6 @@
         "post.logout.redirect.uris": "+"
       },
       "defaultClientScopes": [
-        "openid",
         "profile",
         "email"
       ]
@@ -51,16 +50,12 @@
       "consentRequired": false,
       "protocol": "openid-connect",
       "redirectUris": [
-        "https://<tenant-app>/api/auth/callback/keycloak",
-        "https://<host-shell>/api/auth/callback/keycloak",
         "http://localhost:3000/api/auth/callback/keycloak",
         "http://localhost:3001/api/auth/callback/keycloak",
         "http://127.0.0.1:3000/api/auth/callback/keycloak",
         "http://127.0.0.1:3001/api/auth/callback/keycloak"
       ],
       "webOrigins": [
-        "https://<tenant-app>",
-        "https://<host-shell>",
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
@@ -71,7 +66,6 @@
         "post.logout.redirect.uris": "+"
       },
       "defaultClientScopes": [
-        "openid",
         "profile",
         "email"
       ]
