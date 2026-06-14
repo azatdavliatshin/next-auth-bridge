@@ -31,6 +31,14 @@ jobs:
           # Full history so semantic-release can read every tag and commit when
           # deriving the next version.
           fetch-depth: 0
+          # Persist an owner-identity PAT (RELEASE_TOKEN) as the git credential so
+          # @semantic-release/git can push the CHANGELOG + version commit and tags
+          # to protected main. The default GITHUB_TOKEN authenticates as the
+          # github-actions[bot], which on a personal repo cannot be a ruleset
+          # bypass actor — its push is rejected (GH013). The owner PAT bypasses the
+          # ruleset (owner/admin bypass), so the release commit lands on main.
+          token: ${{ secrets.RELEASE_TOKEN }}
+          persist-credentials: true
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -54,7 +62,12 @@ jobs:
       - name: Release
         run: pnpm exec semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Owner PAT (RELEASE_TOKEN) so @semantic-release/github and the git push
+          # both act as the repo owner, who bypasses the main ruleset. Falls back
+          # to the automatic GITHUB_TOKEN if the PAT secret is unset (the github
+          # plugin still works; the @semantic-release/git push would then be
+          # rejected by the ruleset — see docs/release-governance.md section 2).
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           # setup-node (with registry-url) writes a managed .npmrc at
           # NPM_CONFIG_USERCONFIG containing
           # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}. That user-config
