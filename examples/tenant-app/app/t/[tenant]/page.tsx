@@ -19,6 +19,11 @@ import { SignInButton } from "./sign-in-button";
 // Each entry maps the friendly /t/[tenant] slug to a human label (and, in a real
 // deployment, would map to that tenant's Entra directory id).
 const DEMO_TENANTS: Record<string, { label: string }> = {
+  // The public-demo tenant. Keycloak users (the env-switched public provider)
+  // carry no Entra `tid` claim, so auth.ts collapses them onto a single fixed
+  // tenant id (DEMO_TENANT_ID, default "demo"). This slug must equal that id so
+  // the membership assertion below (tid === tenant) passes — keep them in sync.
+  demo: { label: "Demo Tenant" },
   acme: { label: "Acme Corp" },
   globex: { label: "Globex Corporation" },
 };

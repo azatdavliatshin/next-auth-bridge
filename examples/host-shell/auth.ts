@@ -15,17 +15,31 @@
 
 import NextAuth from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import Keycloak from "next-auth/providers/keycloak";
+
+import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // The multi-tenant + personal-accounts authority. Matches the tenant app's
 // default so both sides target the same authority and share the SSO session.
 const DEFAULT_ENTRA_ISSUER = "https://login.microsoftonline.com/common/v2.0";
 
+// Provider swap only — the host carries none of the tenant app's `tid` plumbing.
+// Both apps MUST point at the SAME Keycloak realm/client so the host's sign-in
+// establishes the SSO session the embedded app's popup silently reuses.
+const activeProvider =
+  AUTH_PROVIDER_ID === "keycloak"
+    ? Keycloak({
+        clientId: process.env.AUTH_KEYCLOAK_ID,
+        clientSecret: process.env.AUTH_KEYCLOAK_SECRET,
+        issuer: process.env.AUTH_KEYCLOAK_ISSUER,
+      })
+    : MicrosoftEntraID({
+        clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+        clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
+        issuer:
+          process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ?? DEFAULT_ENTRA_ISSUER,
+      });
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    MicrosoftEntraID({
-      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
-      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-      issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ?? DEFAULT_ENTRA_ISSUER,
-    }),
-  ],
+  providers: [activeProvider],
 });
