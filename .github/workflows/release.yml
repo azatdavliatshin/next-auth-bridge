@@ -55,13 +55,21 @@ jobs:
         run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # setup-node (with registry-url) writes a managed .npmrc at
+          # NPM_CONFIG_USERCONFIG containing
+          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}. That user-config
+          # .npmrc shadows everything else, so NODE_AUTH_TOKEN MUST carry the real
+          # token — otherwise it resolves empty and npm whoami returns 401 even
+          # though NPM_TOKEN is set. NPM_TOKEN is also provided because
+          # @semantic-release/npm reads it directly; both point at the same secret.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # NPM_TOKEN is a temporary bootstrap for the FIRST publish only — a new
           # package cannot use OIDC Trusted Publishing until it exists on the
           # registry. After the first publish, configure a trusted publisher on
           # npmjs.com (org azatdavliatshin / repo next-auth-bridge / workflow
-          # release.yml), then REMOVE the NPM_TOKEN line below and the secret: the
-          # npm CLI auto-uses OIDC via id-token: write. NPM_CONFIG_PROVENANCE can
-          # also be dropped then (OIDC generates provenance automatically). See
+          # release.yml), then REMOVE the NPM_TOKEN + NODE_AUTH_TOKEN lines and the
+          # secret: the npm CLI auto-uses OIDC via id-token: write. NPM_CONFIG_PROVENANCE
+          # can also be dropped then (OIDC generates provenance automatically). See
           # docs/release-governance.md section 1, Phase B.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
