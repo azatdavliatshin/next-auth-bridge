@@ -13,9 +13,11 @@ The whole flow reduces to **one architectural shape**: a server-side handle stor
 redeems it at `/auth/consume`, which sets the partitioned session cookie. No session token ever
 travels in a URL, a response body, or a `postMessage` payload — only the opaque handle does.
 
-`THREAT-NN` is the canonical invariant namespace (defined in `.planning/REQUIREMENTS.md`). This file
-is the **single source of truth** for those invariants: every row maps a security property to its
-mitigation (code evidence, `file:line`) and to a specific, currently-green test (`test-file :: it-name`).
+`THREAT-NN` is the canonical invariant namespace, and **this file is the single source of truth**
+for those invariants. (The `THREAT-NN` requirements originate in the maintainer's `.planning/`
+tracking on the `dev` branch; their authoritative, shipped definition is the table below.) Every
+row maps a security property to its mitigation (code evidence, `file:line`) and to a specific,
+currently-green test (`test-file :: it-name`).
 A row that cites a non-existent or failing test is a defect — citations are kept honest against the
 live `packages/core` suite.
 
