@@ -22,6 +22,10 @@ Deploy `quay.io/keycloak/keycloak:26.0.7`. Two supported shapes:
 Railway / Fly / Render with an attached Postgres. The generated client secret
 persists, so you read it once and you're done.
 
+> **Railway users:** [RAILWAY.md](./RAILWAY.md) is a click-by-click version of
+> this option (project + Postgres + Dockerfile service + domain), paired with
+> [`railway.json`](./railway.json).
+
 - Build the image: `docker build -f examples/keycloak-demo/Dockerfile -t bridge-keycloak .` (build context = repo root), or point the platform at this Dockerfile.
 - Command: `start --import-realm` (already the image ENTRYPOINT).
 - Env:
