@@ -41,7 +41,7 @@
     {
       "clientId": "bridge-example-app",
       "name": "Bridge example app",
-      "description": "Confidential client for the hosted popup-bridge demo. Used by BOTH example apps (host-shell + tenant-app) so a single Keycloak SSO session is shared across both origins. Standard auth-code flow with PKCE (S256); Direct Access Grants (ROPC) disabled. The client secret is generated at first import and lives in deployment env only (Vercel) — never committed. Replace the <tenant-app>/<host-shell> redirect/web-origin placeholders with the real *.vercel.app origins after deploy.",
+      "description": "Confidential popup-bridge demo client shared by both example apps (host-shell + tenant-app) so one Keycloak SSO session spans both origins. Auth-code + PKCE (S256), ROPC off. Secret set in deployment env only. See examples/keycloak-demo/DEPLOY.md.",
       "enabled": true,
       "publicClient": false,
       "standardFlowEnabled": true,
