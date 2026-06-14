@@ -51,11 +51,11 @@ This package solves the inheritance problem with a one-time-code bridge: a popup
 Try the popup-bridge end-to-end without a Microsoft account — sign in with a
 seeded test user against a self-hosted Keycloak.
 
-**Demo URL:** _<!-- set after deploy; see [examples/keycloak-demo/DEPLOY.md](./examples/keycloak-demo/DEPLOY.md) -->_
+**Demo URL:** **[nab-host.vercel.app](https://nab-host.vercel.app/)** — start here (the enterprise host). The embedded tenant app lives at [nab-tenant.vercel.app/t/demo](https://nab-tenant.vercel.app/t/demo).
 
 **Test credentials:** `bridge-test-user` / `bridge-test-password`
 
-**The flow, in one line:** sign in on the host → open the embedded app → the
+**The flow, in one line:** sign in on the host → the embedded app appears → the
 iframe signs itself in via the popup bridge (no second login prompt).
 
 > ⚠️ **Demo only.** These credentials are public on purpose and the instance is

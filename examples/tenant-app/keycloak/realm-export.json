@@ -50,12 +50,16 @@
       "consentRequired": false,
       "protocol": "openid-connect",
       "redirectUris": [
+        "https://nab-tenant.vercel.app/api/auth/callback/keycloak",
+        "https://nab-host.vercel.app/api/auth/callback/keycloak",
         "http://localhost:3000/api/auth/callback/keycloak",
         "http://localhost:3001/api/auth/callback/keycloak",
         "http://127.0.0.1:3000/api/auth/callback/keycloak",
         "http://127.0.0.1:3001/api/auth/callback/keycloak"
       ],
       "webOrigins": [
+        "https://nab-tenant.vercel.app",
+        "https://nab-host.vercel.app",
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
