@@ -1,6 +1,6 @@
 {
   "name": "next-auth-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cross-context authentication bridge for Next.js / Auth.js (popup + PWA-shell transports) backed by a one-time-use transfer store.",
   "license": "MIT",
   "type": "module",
