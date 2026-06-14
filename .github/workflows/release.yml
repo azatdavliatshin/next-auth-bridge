@@ -8,6 +8,11 @@ name: release
 on:
   push:
     branches: [main]
+  # Manual trigger so a stuck/skipped release (e.g. a [skip ci] in a merge body,
+  # or a bypass push that doesn't fire push events) can be re-run against the
+  # current main without crafting a new commit. semantic-release is idempotent —
+  # it no-ops if there is nothing new to release.
+  workflow_dispatch:
 
 # id-token: write is REQUIRED for npm provenance — without it the attestation is
 # silently dropped. contents: write lets @semantic-release/git push the CHANGELOG
