@@ -15,31 +15,6 @@ jobs:
   keycloak-roundtrip:
     runs-on: ubuntu-latest
 
-    # Pin a known-good Keycloak 26.x tag rather than `latest`, and enable the
-    # health endpoints so the readiness poll below has something to hit. The
-    # realm is imported at startup from the committed export.
-    services:
-      keycloak:
-        image: quay.io/keycloak/keycloak:26.0.7
-        env:
-          KC_BOOTSTRAP_ADMIN_USERNAME: admin
-          KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-          KC_HEALTH_ENABLED: "true"
-          KC_HTTP_ENABLED: "true"
-        ports:
-          - 8080:8080
-          - 9000:9000
-        # GitHub Actions service containers cannot take extra CLI args, so the
-        # default entrypoint runs `start`. The realm is imported in an explicit
-        # step below via the Keycloak admin REST API instead of --import-realm
-        # at boot (which would require a custom command the service block cannot
-        # express). See the "Import realm" step.
-        options: >-
-          --health-cmd "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\nhost: localhost\n\n' >&3 && cat <&3 | grep -q UP"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 30
-
     env:
       KEYCLOAK_BASE_URL: http://localhost:8080
       KEYCLOAK_REALM: bridge-agnosticism
@@ -52,10 +27,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Start Keycloak
+        # Run Keycloak as a plain `docker run` rather than a service container:
+        # the image's entrypoint (kc.sh) needs a `start`/`start-dev` command,
+        # which a `services:` block cannot express. `start-dev` runs HTTP dev
+        # mode (no hostname/TLS requirement) and `--import-realm` imports the
+        # committed realm-export from the mounted import dir in one shot.
+        # Pin a known-good 26.x tag rather than `latest`.
+        run: |
+          docker run -d --name keycloak \
+            -p 8080:8080 -p 9000:9000 \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+            -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+            -e KC_HEALTH_ENABLED=true \
+            -v "${{ github.workspace }}/examples/tenant-app/keycloak:/opt/keycloak/data/import:ro" \
+            quay.io/keycloak/keycloak:26.0.7 \
+            start-dev --import-realm
+
       - name: Wait for Keycloak readiness
-        # Do not rely solely on the container HEALTHCHECK — poll the management
-        # readiness endpoint explicitly so the job fails loud if Keycloak never
-        # comes up rather than racing into the import.
+        # Poll the management readiness endpoint explicitly so the job fails loud
+        # if Keycloak never comes up rather than racing into the test. On timeout,
+        # dump the container logs so the failure is diagnosable.
         run: |
           echo "Polling Keycloak readiness at :9000/health/ready ..."
           for i in $(seq 1 60); do
@@ -67,36 +59,8 @@ jobs:
             sleep 5
           done
           echo "Keycloak did not become ready in time." >&2
+          docker logs keycloak || true
           exit 1
-
-      - name: Import realm
-        # Import the committed realm-export through the admin REST API. The
-        # service block cannot pass `--import-realm` to the container command, so
-        # we authenticate as the bootstrap admin and POST the realm. Idempotent:
-        # a pre-existing realm (409) is treated as success.
-        run: |
-          set -euo pipefail
-          REALM_FILE=examples/tenant-app/keycloak/realm-export.json
-          echo "Obtaining admin token ..."
-          TOKEN=$(curl -fsS -X POST \
-            http://localhost:8080/realms/master/protocol/openid-connect/token \
-            -d "client_id=admin-cli" \
-            -d "username=admin" \
-            -d "password=admin" \
-            -d "grant_type=password" | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
-          echo "Importing realm from ${REALM_FILE} ..."
-          STATUS=$(curl -s -o /tmp/import-body -w "%{http_code}" -X POST \
-            http://localhost:8080/admin/realms \
-            -H "Authorization: Bearer ${TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data @"${REALM_FILE}")
-          echo "Import HTTP status: ${STATUS}"
-          if [ "${STATUS}" != "201" ] && [ "${STATUS}" != "409" ]; then
-            echo "Realm import failed:" >&2
-            cat /tmp/import-body >&2
-            exit 1
-          fi
-          echo "Realm import-realm step complete (status ${STATUS})."
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -118,3 +82,7 @@ jobs:
 
       - name: Run Keycloak roundtrip test
         run: pnpm --filter tenant-app-example test
+
+      - name: Dump Keycloak logs on failure
+        if: failure()
+        run: docker logs keycloak || true
