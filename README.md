@@ -18,6 +18,7 @@ pnpm add next-auth-bridge
 ## Table of contents
 
 - [Why this exists](#why-this-exists)
+- [Live demo](#live-demo)
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [Compatibility matrix](#compatibility-matrix)
@@ -42,6 +43,29 @@ The mainstream alternatives don't fit cleanly with Auth.js:
 - **Vendor SDKs** (Auth0, Okta, Clerk) lock you into their hosted identity, which Auth.js exists specifically to avoid.
 
 This package solves the inheritance problem with a one-time-code bridge: a popup window auths in the top-level browser context (silently, against the host's existing identity-provider session), mints a 256-bit one-time code via the server-side transferStore, and posts it back to the iframe — which exchanges it for a CHIPS-partitioned session cookie of its own. No session token ever travels through a URL.
+
+---
+
+## Live demo
+
+Try the popup-bridge end-to-end without a Microsoft account — sign in with a
+seeded test user against a self-hosted Keycloak.
+
+**Demo URL:** _<!-- set after deploy; see [examples/keycloak-demo/DEPLOY.md](./examples/keycloak-demo/DEPLOY.md) -->_
+
+**Test credentials:** `bridge-test-user` / `bridge-test-password`
+
+**The flow, in one line:** sign in on the host → open the embedded app → the
+iframe signs itself in via the popup bridge (no second login prompt).
+
+> ⚠️ **Demo only.** These credentials are public on purpose and the instance is
+> throwaway. Not production — never reuse this realm, client, or user.
+
+The demo runs both example apps on two distinct Vercel origins (so the CHIPS
+cross-site handoff is real) against a hosted Keycloak. The default reference
+deployment uses Microsoft Entra; the public demo flips one env var
+(`NEXT_PUBLIC_AUTH_PROVIDER=keycloak`) to swap in Keycloak so anyone can sign in.
+Hosting instructions: [examples/keycloak-demo/DEPLOY.md](./examples/keycloak-demo/DEPLOY.md).
 
 ---
 
