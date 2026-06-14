@@ -1,7 +1,7 @@
 {
   "realm": "bridge-agnosticism",
   "enabled": true,
-  "sslRequired": "none",
+  "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
@@ -27,6 +27,44 @@
       "webOrigins": [
         "http://localhost:3000",
         "http://127.0.0.1:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email"
+      ]
+    },
+    {
+      "clientId": "bridge-example-app",
+      "name": "Bridge example app",
+      "description": "Confidential client for the hosted popup-bridge demo. Used by BOTH example apps (host-shell + tenant-app) so a single Keycloak SSO session is shared across both origins. Standard auth-code flow with PKCE (S256); Direct Access Grants (ROPC) disabled. The client secret is generated at first import and lives in deployment env only (Vercel) — never committed. Replace the <tenant-app>/<host-shell> redirect/web-origin placeholders with the real *.vercel.app origins after deploy.",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "https://<tenant-app>/api/auth/callback/keycloak",
+        "https://<host-shell>/api/auth/callback/keycloak",
+        "http://localhost:3000/api/auth/callback/keycloak",
+        "http://localhost:3001/api/auth/callback/keycloak",
+        "http://127.0.0.1:3000/api/auth/callback/keycloak",
+        "http://127.0.0.1:3001/api/auth/callback/keycloak"
+      ],
+      "webOrigins": [
+        "https://<tenant-app>",
+        "https://<host-shell>",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
