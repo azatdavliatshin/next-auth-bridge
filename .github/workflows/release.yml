@@ -48,9 +48,12 @@ jobs:
         with:
           # Node >= 22.14 carries npm >= 11.5.1, the floor for npm Trusted
           # Publishing (OIDC). This is the CI tooling floor, independent of the
-          # package engines value. registry-url wires the npm publish target.
+          # package engines value. We deliberately do NOT set registry-url: it
+          # would write a managed .npmrc pinning //registry.npmjs.org/:_authToken,
+          # which forces token auth and shadows OIDC. The npm CLI resolves the
+          # registry from the package by default and authenticates via OIDC using
+          # the id-token below.
           node-version: 22.14
-          registry-url: https://registry.npmjs.org
           cache: pnpm
 
       - name: Install dependencies
@@ -68,21 +71,10 @@ jobs:
           # plugin still works; the @semantic-release/git push would then be
           # rejected by the ruleset — see docs/release-governance.md section 2).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # setup-node (with registry-url) writes a managed .npmrc at
-          # NPM_CONFIG_USERCONFIG containing
-          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}. That user-config
-          # .npmrc shadows everything else, so NODE_AUTH_TOKEN MUST carry the real
-          # token — otherwise it resolves empty and npm whoami returns 401 even
-          # though NPM_TOKEN is set. NPM_TOKEN is also provided because
-          # @semantic-release/npm reads it directly; both point at the same secret.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # NPM_TOKEN is a temporary bootstrap for the FIRST publish only — a new
-          # package cannot use OIDC Trusted Publishing until it exists on the
-          # registry. After the first publish, configure a trusted publisher on
-          # npmjs.com (org azatdavliatshin / repo next-auth-bridge / workflow
-          # release.yml), then REMOVE the NPM_TOKEN + NODE_AUTH_TOKEN lines and the
-          # secret: the npm CLI auto-uses OIDC via id-token: write. NPM_CONFIG_PROVENANCE
-          # can also be dropped then (OIDC generates provenance automatically). See
-          # docs/release-governance.md section 1, Phase B.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
+          # npm auth is OIDC Trusted Publishing — no NPM_TOKEN / NODE_AUTH_TOKEN.
+          # A trusted publisher is configured on npmjs.com for this repo +
+          # release.yml; npm (>= 11.5.1, via Node 22.14) exchanges the workflow's
+          # OIDC id-token (permissions.id-token: write above) for a short-lived
+          # publish credential at publish time. OIDC also generates the Sigstore
+          # provenance attestation automatically, so NPM_CONFIG_PROVENANCE is no
+          # longer needed. See docs/release-governance.md section 1, Phase B.

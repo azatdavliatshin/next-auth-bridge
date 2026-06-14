@@ -22,15 +22,17 @@
 // there is no client-side identity-provider popup here.
 
 import { auth, signIn, signOut } from "@/auth";
+import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // The tenant app's origin to embed. In a real deploy NEXT_PUBLIC_APP_ORIGIN is
 // the tenant app's https origin; locally it falls back to a sensible dev origin.
 const APP_ORIGIN =
   process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://your-app.vercel.app";
 
-// Embed the "acme" tenant landing page concretely so the roundtrip is visible
-// end to end.
-const EMBEDDED_TENANT_PATH = "/t/acme";
+// Embed the "demo" tenant landing page concretely so the roundtrip is visible
+// end to end. "demo" is the public-demo tenant: Keycloak users resolve to this
+// fixed tenant id (DEMO_TENANT_ID), so the embedded app's membership check passes.
+const EMBEDDED_TENANT_PATH = "/t/demo";
 
 export default async function HostShellPage(): Promise<React.JSX.Element> {
   const session = await auth();
@@ -67,7 +69,7 @@ export default async function HostShellPage(): Promise<React.JSX.Element> {
           <form
             action={async () => {
               "use server";
-              await signIn("microsoft-entra-id", { redirectTo: "/" });
+              await signIn(AUTH_PROVIDER_ID, { redirectTo: "/" });
             }}
           >
             <button type="submit">Sign in to the host</button>

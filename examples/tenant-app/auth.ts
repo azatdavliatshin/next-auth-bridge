@@ -8,11 +8,40 @@
 
 import NextAuth from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import Keycloak from "next-auth/providers/keycloak";
+
+import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // The multi-tenant + personal-accounts authority. When the issuer env var is
 // unset we fall back to this default so a fresh checkout still points at the
 // multi-tenant endpoint rather than a single tenant.
 const DEFAULT_ENTRA_ISSUER = "https://login.microsoftonline.com/common/v2.0";
+
+// Keycloak has no Entra `tid` claim, so a Keycloak demo user is collapsed onto a
+// single fixed tenant. The slug must match a configured DEMO_TENANTS entry on the
+// /t/[tenant] page so its membership assertion (tid === tenant) passes.
+const DEMO_TENANT_ID = process.env.DEMO_TENANT_ID ?? "demo";
+
+// Build the active provider from the env switch. Keycloak is the public-demo
+// provider (anyone can sign in with the seeded test user); Entra is the default
+// and keeps the enterprise narrative intact. Both example apps must point at the
+// SAME Keycloak realm/client so the host's sign-in establishes the SSO session
+// the popup silently reuses.
+const activeProvider =
+  AUTH_PROVIDER_ID === "keycloak"
+    ? Keycloak({
+        clientId: process.env.AUTH_KEYCLOAK_ID,
+        clientSecret: process.env.AUTH_KEYCLOAK_SECRET,
+        issuer: process.env.AUTH_KEYCLOAK_ISSUER,
+      })
+    : MicrosoftEntraID({
+        clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
+        clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
+        // Multi-tenant + personal accounts. Override via env for a single-tenant
+        // or work/school-only deployment.
+        issuer:
+          process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ?? DEFAULT_ENTRA_ISSUER,
+      });
 
 /**
  * Read the Entra tenant id (`tid`) for the signed-in account.
@@ -71,15 +100,7 @@ function decodeJwtClaims(
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    MicrosoftEntraID({
-      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
-      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
-      // Multi-tenant + personal accounts. Override via env for a single-tenant
-      // or work/school-only deployment.
-      issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER ?? DEFAULT_ENTRA_ISSUER,
-    }),
-  ],
+  providers: [activeProvider],
   callbacks: {
     jwt({ token, account, profile }) {
       // Capture the tenant id once at sign-in and carry it on the token so the
@@ -90,6 +111,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       );
       if (tid) {
         (token as Record<string, unknown>)["tid"] = tid;
+      } else if (
+        AUTH_PROVIDER_ID === "keycloak" &&
+        typeof (token as Record<string, unknown>)["tid"] !== "string"
+      ) {
+        // Keycloak carries no Entra `tid` claim, so every Keycloak user resolves
+        // to the single fixed demo tenant. Set it once (only when no tid is yet
+        // present) so the /t/[tenant] membership assertion passes.
+        (token as Record<string, unknown>)["tid"] = DEMO_TENANT_ID;
       }
       return token;
     },

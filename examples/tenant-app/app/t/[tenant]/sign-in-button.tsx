@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { SignInLauncher } from "../../auth/sign-in-launcher";
+import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // Embedded in a frame, or a real top-level document? A cross-origin `top` access
 // throws — which itself confirms embedding.
@@ -53,7 +54,7 @@ export function SignInButton(): React.JSX.Element {
   // redirect). This sets the first-party tenant session that the embedded popup
   // will later read.
   return (
-    <button type="button" onClick={() => void signIn("microsoft-entra-id")}>
+    <button type="button" onClick={() => void signIn(AUTH_PROVIDER_ID)}>
       Sign in
     </button>
   );
