@@ -46,15 +46,20 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          # Node >= 22.14 carries npm >= 11.5.1, the floor for npm Trusted
-          # Publishing (OIDC). This is the CI tooling floor, independent of the
-          # package engines value. We deliberately do NOT set registry-url: it
-          # would write a managed .npmrc pinning //registry.npmjs.org/:_authToken,
-          # which forces token auth and shadows OIDC. The npm CLI resolves the
-          # registry from the package by default and authenticates via OIDC using
-          # the id-token below.
+          # We deliberately do NOT set registry-url: it would write a managed
+          # .npmrc pinning //registry.npmjs.org/:_authToken, which forces token
+          # auth and shadows OIDC. The npm CLI resolves the registry from the
+          # package by default and authenticates via OIDC using the id-token below.
           node-version: 22.14
           cache: pnpm
+
+      # Node 22.14 BUNDLES npm 10.9.2, which is BELOW the 11.5.1 floor required for
+      # OIDC Trusted Publishing at `npm publish` time. (@semantic-release/npm does
+      # its own OIDC token exchange, but the publish subprocess shells out to the
+      # system npm — so that npm must satisfy the floor too, or it 401s with
+      # ENEEDAUTH.) Upgrade npm globally before the release.
+      - name: Upgrade npm for OIDC Trusted Publishing
+        run: npm install -g npm@^11.5.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -71,10 +76,15 @@ jobs:
           # plugin still works; the @semantic-release/git push would then be
           # rejected by the ruleset — see docs/release-governance.md section 2).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # npm auth is OIDC Trusted Publishing — no NPM_TOKEN / NODE_AUTH_TOKEN.
-          # A trusted publisher is configured on npmjs.com for this repo +
-          # release.yml; npm (>= 11.5.1, via Node 22.14) exchanges the workflow's
-          # OIDC id-token (permissions.id-token: write above) for a short-lived
-          # publish credential at publish time. OIDC also generates the Sigstore
-          # provenance attestation automatically, so NPM_CONFIG_PROVENANCE is no
-          # longer needed. See docs/release-governance.md section 1, Phase B.
+          # Primary npm auth is OIDC Trusted Publishing: a trusted publisher is
+          # configured on npmjs.com for this repo + release.yml, and npm (>= 11.5.1
+          # via the upgrade step above) exchanges the workflow's OIDC id-token
+          # (permissions.id-token: write) for a short-lived publish credential.
+          # OIDC also auto-generates the Sigstore provenance attestation.
+          #
+          # NPM_TOKEN is a TEMPORARY fallback retained while OIDC is being proven
+          # in CI: @semantic-release/npm reads it directly and falls back to it if
+          # the OIDC exchange is unavailable. Remove this line (and delete the
+          # secret) once a release has published cleanly via OIDC. See
+          # docs/release-governance.md section 1, Phase B.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
