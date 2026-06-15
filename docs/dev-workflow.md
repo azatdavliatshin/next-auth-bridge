@@ -1,74 +1,68 @@
-# Maintainer dev → main workflow
+# Maintainer workflow (trunk-based)
 
-The day-to-day loop for landing work from `dev` onto `main`, plus the sharp edges
-that have actually bitten us. Pairs with [release-governance.md](./release-governance.md)
+The day-to-day loop for landing work on `main`, plus the sharp edges that have
+actually bitten us. Pairs with [release-governance.md](./release-governance.md)
 (the release pipeline) and the branch model in the root `CLAUDE.md`.
 
 ## Branch model
 
-- **`dev`** — active engineering branch. Commit freely here: code *and* GSD
-  `.planning/` artifacts.
-- **`main`** — the published surface. PR-only, protected by a ruleset that
-  **requires linear history** (so merge commits are blocked — use squash or rebase).
+Trunk-based (GitHub Flow). One long-lived branch:
+
+- **`main`** — the trunk and the release surface. PR-only, protected by a ruleset
+  that **requires linear history** (merge commits are blocked — rebase or squash).
   Each push to `main` triggers semantic-release.
 
-We land `dev → main` with **rebase-merge** (not squash). Rebasing keeps `dev`'s
-real atomic commits on `main` and preserves shared ancestry, which keeps
-`main..dev` to only the genuinely-new commits. (Squash-merging detaches history:
-`main..dev` then reports the *entire* branch every time, which makes
-`/gsd-pr-branch`'s cherry-pick replay the whole project and conflict. Rebase
-avoids that trap.)
+There is no `dev` branch. GSD `.planning/` artifacts live in the tree on `main`
+like any other internal docs — they never reach the published npm package (it
+ships only `packages/core/dist`, per the `files` allowlist in
+`packages/core/package.json`), so they cost nothing on the trunk and keep the
+project's decision history in one place.
+
+We land PRs with **rebase-merge** (not squash). Rebasing keeps each atomic
+Conventional-Commit subject on `main` so semantic-release can parse every one of
+them. (Squash collapses a multi-commit PR into a single subject, which loses the
+per-commit `feat:`/`fix:` signal semantic-release reads.)
 
 ## The loop
 
 ```bash
-# 1. Work on dev — commit code + .planning/ freely, Conventional-Commit messages.
+# 1. Branch a short-lived branch off main. Conventional-Commit messages.
+git checkout main && git pull
+git checkout -b feat/<slug>
 
-# 2. When a chunk is ready, build a clean PR branch (strips transient .planning/).
-/gsd-pr-branch
-#    → creates dev-<slug>-pr off main, with .planning/ removed.
-#
-#    NOTE for this repo: `main` carries NO `.planning/` at all — it is internal
-#    GSD tooling state that lives only on `dev`. /gsd-pr-branch by default keeps
-#    the "structural" files (STATE/ROADMAP/PROJECT/REQUIREMENTS/config), so after
-#    running it, strip those too before opening the PR:
-#        git rm -r --cached .planning/ 2>/dev/null; git commit --amend --no-edit
-#    (or just confirm `git diff --name-only main..HEAD | grep '^\.planning/'` is
-#    empty). The THREAT-NN definitions that used to point at .planning/REQUIREMENTS.md
-#    are self-contained in docs/threat-model.md, so nothing on main depends on .planning/.
+# 2. Work — commit code AND any .planning/ artifacts freely; both belong on main.
 
 # 3. Push + open the PR. Title MUST be a Conventional Commit (the `validate` check).
-git push -u origin dev-<slug>-pr
+git push -u origin feat/<slug>
 gh pr create --base main --title "feat(scope): ..." --body "..."
 
 # 4. Merge with REBASE (linear-history requirement) + admin (PR-only ruleset bypass).
 gh pr merge <n> --rebase --admin --delete-branch
 
-# 5. Reconcile dev with the release commit semantic-release pushed to main.
-git checkout dev
-git merge origin/main          # picks up chore(release): X.Y.Z + the tag
-git push origin dev
+# 5. Sync local main with the release commit semantic-release pushed.
+git checkout main && git pull   # picks up chore(release): X.Y.Z + the tag
 ```
 
 ## Why each non-obvious flag
 
 - **`--rebase`** — `main` requires linear history; merge commits are rejected.
   Rebase replays your commits, so semantic-release reads each Conventional-Commit
-  message on `main` (every commit on the PR branch must therefore be well-formed —
-  which `/gsd-pr-branch` preserves; don't hand-squash).
+  message on `main` (every commit on the branch must therefore be well-formed —
+  the local commit-msg hook enforces this; don't hand-squash unrelated work).
 - **`--admin`** — the ruleset is PR-only with **no required approvals**; the owner
   is the bypass actor. `--admin` merges once checks are green without a second
   reviewer. (Plain `gh pr merge` returns "base branch policy prohibits the merge"
   even when mergeable — that's the ruleset, not a real blocker.)
 - **Step 5** — semantic-release commits `chore(release): X.Y.Z [skip ci]` back to
-  `main`; merging it into `dev` keeps the version/CHANGELOG in sync and avoids drift.
+  `main`; pull it so your local trunk has the version/CHANGELOG bump and the tag.
 
 ## Releasing
 
 Automatic on push to `main` (see [release-governance.md](./release-governance.md)):
 `feat:` → minor, `fix:` → patch, `BREAKING CHANGE:` footer → major. Publishes to
 npm via OIDC Trusted Publishing with a Sigstore provenance attestation, tags, and
-cuts a GitHub Release.
+cuts a GitHub Release. `docs:`/`chore:`/`test:`/`ci:`/`refactor:` commits cut no
+release (so planning churn on the trunk never bumps the version).
 
 ## Gotchas (each one cost real time at least once)
 
@@ -93,9 +87,15 @@ cuts a GitHub Release.
 5. **npm version floor for OIDC** — Node 22.14 bundles npm 10.9.2, below the 11.5.1
    OIDC publish floor; `release.yml` upgrades npm explicitly. Don't assume a Node
    version ships a recent enough npm. (Full detail in release-governance.md.)
+6. **Required status-check name** — the `main` ruleset's required check is the
+   GitHub Actions **job** name (`validate`), NOT `workflow / job` (`pr-title /
+   validate`). The `workflow / job` form never reports for Actions check-runs, so a
+   PR sits at "Expected — Waiting for status to be reported" / BLOCKED forever even
+   though every check passed. If you re-create the ruleset, the required context is
+   `validate`.
 
-## External contributors
+## Contributors
 
-Fork, branch from `main`, open a PR against `main`. They never touch `dev` or the
-`/gsd-pr-branch` step — that's maintainer-only tooling for filtering planning
-artifacts.
+Everyone — maintainer and external contributor — uses the same flow: fork (if
+external), branch a short-lived branch off `main`, open a PR against `main`. There
+is no separate maintainer track and no planning-artifact filtering step.

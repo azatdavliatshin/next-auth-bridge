@@ -19,14 +19,13 @@ One shared `transferStore` with one-time-use 256-bit hex codes backs both transp
 
 ## Development workflow
 
-Two long-lived branches:
+Trunk-based (GitHub Flow). One long-lived branch:
 
-- **`main`** — the published surface. Tagged releases come from here. Modified only through pull requests; direct pushes are blocked by branch protection.
-- **`dev`** — the active engineering branch. Day-to-day work lands here, including work-in-progress notes, milestone planning, exploratory code, and unresolved decisions.
+- **`main`** — the trunk and the release surface. Tagged releases come from here. Modified only through pull requests; direct pushes are blocked by branch protection.
 
-When a chunk of work is ready, a clean PR branch is generated from `dev` (with internal planning artifacts filtered out — `/gsd-pr-branch`) and opened against `main`. PRs are **rebase-merged** (the `main` ruleset requires linear history; rebasing keeps `dev`'s real commits on `main` so `main..dev` stays just the new work and the clean-branch step never has to replay history). The full loop, flags, and release/recovery gotchas are in [docs/dev-workflow.md](docs/dev-workflow.md).
+All work — maintainer and external contributor alike — flows the same way: branch a short-lived `feat/…` / `fix/…` / `chore/…` branch off `main`, commit using Conventional Commits, open a PR against `main`. PRs are **rebase-merged** (the `main` ruleset requires linear history; rebasing keeps each Conventional-Commit subject intact so semantic-release can parse it). The full loop and release/recovery gotchas are in [docs/dev-workflow.md](docs/dev-workflow.md).
 
-External contributors: fork the repo, branch from `main`, open PR against `main`. No need to engage with `dev`.
+There is no `dev` branch. GSD planning artifacts (`.planning/`) live in the tree on `main` like any other internal docs — they are never part of the published npm package (the package ships only `packages/core/dist`, controlled by its `files` allowlist), so they cost nothing on the trunk and keep decision history in one place.
 
 ### Versioning and releases
 
@@ -41,7 +40,7 @@ Commits should use Conventional Commit types: `feat`, `fix`, `docs`, `refactor`,
 
 A commit-msg hook validates that every commit message conforms to the Conventional Commits format. Malformed messages are rejected locally before push, so PRs always arrive with a clean history that semantic-release can parse without manual cleanup.
 
-Milestones (independent of releases) are tracked in `MILESTONES.md` on the `dev` branch — human-readable history of phase boundaries, not git tags.
+Milestones (independent of releases) are tracked in `.planning/MILESTONES.md` — human-readable history of phase boundaries, not git tags.
 
 ## Style and conventions
 
@@ -123,9 +122,9 @@ Each line in `.git/local-patterns.txt` is a case-insensitive regex. The hook che
 ## When extending the project
 
 - Read `docs/threat-model.md` at session start (the invariant registry).
-- For non-trivial features: open an issue or draft a `dev`-branch design note before coding. Substantive engineering decisions are documented in PR descriptions or in `docs/`.
-- For implementing: branch from `dev` (maintainer) or `main` (external contributor). Commit using Conventional Commits.
-- For PR: rebase-merge into target branch (linear-history ruleset). CHANGELOG generation is automated. See [docs/dev-workflow.md](docs/dev-workflow.md).
+- For non-trivial features: open an issue or draft a design note (in `.planning/` or `docs/`) before coding. Substantive engineering decisions are documented in PR descriptions or in `docs/`.
+- For implementing: branch a short-lived `feat/…` / `fix/…` / `chore/…` off `main`. Commit using Conventional Commits.
+- For PR: open against `main` and rebase-merge (linear-history ruleset). CHANGELOG generation is automated. See [docs/dev-workflow.md](docs/dev-workflow.md).
 - Ad-hoc edits OK for typos, doc-only changes, and small bug fixes.
 
 <!-- GSD:project-start source:PROJECT.md -->
@@ -140,7 +139,7 @@ It is library-first. The reference example apps in this repo are the only determ
 
 **Core Value:** The popup-bridge (Mode A) pattern works end-to-end and is *deeply correct* — every threat-model invariant holds under negative-case test coverage. Correctness of the security-critical handoff is the one thing that cannot fail; breadth of transports and hosts is secondary.
 
-GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json) **on the `dev` branch only** — it is internal tooling state, never merged to `main` (the published surface carries only product: code, `docs/`, README, license). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
+GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json) in the tree on `main` — internal tooling state, but harmless on the trunk: it never reaches the published npm package (the package ships only `packages/core/dist`, per its `files` allowlist). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
 
 <!-- GSD:project-end -->
 
