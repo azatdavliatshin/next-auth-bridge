@@ -20,8 +20,12 @@
 // used to classify — it is only the postMessage target, captured once up front.
 
 import { useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import { runPopupFlow } from "next-auth-bridge";
 import { SignInLauncher } from "../sign-in-launcher";
+// Single source of truth for the active provider id — the same import the
+// /t/[tenant] sign-in button uses, so client and server agree on the provider.
+import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // The Auth.js session endpoint — reports auth state WITHOUT side effects. We use
 // this (not a /auth/bridge probe) to decide warm/not-warm: /auth/bridge MINTS a
@@ -111,9 +115,27 @@ export default function PopupPage(): React.JSX.Element {
         return;
       }
 
-      // Not warm + top-level => a real popup with no host session. Do NOT loop into
-      // a launcher (that would reopen a popup) and do NOT redirect. Tell the user
-      // to sign into the host first.
+      // Not warm + top-level. Before giving up, try ONE silent prompt=none auth. If
+      // the host already established the IdP SSO session, this mints the tenant
+      // session with no prompt and we return warm. One-shot guard (?silent=attempted)
+      // prevents a redirect loop; an Auth.js OAuth error (e.g. login_required = no
+      // SSO) routes back here with ?error.
+      const url = new URL(window.location.href);
+      const silentDone =
+        url.searchParams.get("silent") === "attempted" ||
+        url.searchParams.has("error");
+      if (!silentDone) {
+        setMode({ kind: "checking" });
+        await signIn(
+          AUTH_PROVIDER_ID,
+          { redirectTo: "/auth/popup?silent=attempted" },
+          { prompt: "none" },
+        );
+        return; // navigation in progress
+      }
+      // Silent attempt already made and still no session => genuinely cold (no host
+      // SSO). Fall through to the "sign in to the host first" notice. Do NOT loop
+      // into a launcher (that would reopen a popup) and do NOT redirect.
       setMode({ kind: "not-warm" });
     })();
   }, []);
