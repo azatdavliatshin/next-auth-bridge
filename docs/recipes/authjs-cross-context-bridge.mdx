@@ -52,11 +52,18 @@ token-smuggling hack:
 - **PKCE is preserved** through the handoff (Auth.js handles the OAuth exchange).
 - **`postMessage` origin checks** on both the popup and the opener.
 
+The pattern is provider-agnostic: it works with any Auth.js OAuth provider that uses the
+authorization-code flow — Microsoft Entra, Google, Okta, Auth0-as-IdP, Keycloak, and others.
+
 ## Installation
 
 ```bash
 npm install next-auth-bridge
 ```
+
+> **Requires** Auth.js v5 (`next-auth@5`) and Next.js App Router (14 or 15). The bridge and
+> consume handlers are Web-standard `(request) => Promise<Response>` functions, so they run in
+> any App Router route handler.
 
 The package exposes three import paths: `next-auth-bridge` (the main entry —
 `createAuthBridge`, `runPopupFlow`, `openAuthPopup`, and the other client helpers),
@@ -110,7 +117,6 @@ functions:
 import { bridge } from "@/lib/auth-bridge";
 
 export const GET = (request: Request): Promise<Response> => bridge(request);
-export const POST = (request: Request): Promise<Response> => bridge(request);
 ```
 
 ```ts
@@ -220,7 +226,7 @@ export async function signInViaBridge(): Promise<void> {
     });
 
     // Redeem the handle for the partitioned session cookie. credentials:"include"
-    // so the Set-Cookie commits under the correct (top-level) CHIPS partition.
+    // so the Set-Cookie commits under the right CHIPS partition (keyed by the top-level site).
     await fetch(`/auth/consume?code=${encodeURIComponent(code)}`, {
       credentials: "include",
       redirect: "follow",
