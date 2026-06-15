@@ -9,9 +9,9 @@ pnpm add next-auth-bridge
 # requires: next ≥ 14, next-auth (Auth.js) ≥ 5, a server-side KV store
 ```
 
-> **Status:** pre-release. APIs are unstable until v0.1.0. Not yet on npm. See [Roadmap](#roadmap).
+> **Status:** published — [`next-auth-bridge@0.2.0`](https://www.npmjs.com/package/next-auth-bridge) on npm (with SLSA provenance). Mode A (popup bridge) is complete; the API is stable within 0.x. See [Roadmap](#roadmap).
 >
-> **Looking ahead:** This package will also target PWABuilder-wrapped iOS apps (`ASWebAuthenticationSession` for native passkey support) in v0.2. The transferStore architecture is designed so v0.2 lands as an additive change — no breaking changes for v0.1.0 consumers. See [Roadmap](#roadmap) for details.
+> **Looking ahead:** A future major adds Mode B — PWABuilder-wrapped iOS apps (`ASWebAuthenticationSession` for native passkey support). The transferStore architecture is designed so Mode B lands as an additive change — no breaking changes for current consumers. See [Roadmap](#roadmap) for details.
 
 ---
 
@@ -300,11 +300,11 @@ The transferStore code is 256-bit hex from `crypto.randomBytes(32)`, single-use,
 
 | Surface | Supported |
 |---|---|
-| **Next.js** | 14, 15 (App Router; Pages Router planned for v0.2) |
-| **Auth.js (next-auth)** | v5 ≥ 5.0.0. v4 not supported in v0.1; planned for v0.2 if demand. |
+| **Next.js** | 14, 15 (App Router; Pages Router planned) |
+| **Auth.js (next-auth)** | v5 ≥ 5.0.0. v4 (legacy NextAuth) not supported; planned if there is demand. |
 | **OAuth providers** | Any Auth.js provider that supports authorization-code OAuth: Microsoft Entra, Google, Apple, GitHub, Okta, Auth0-as-IdP. Magic-link / password / WebAuthn-only providers planned for v0.3+. |
 | **Browser (iframe)** | CHIPS partitioned cookies: Chrome 114+, Edge 114+, Firefox 130+, Safari 18+. Older Safari supported but cookie persistence may degrade to single session. |
-| **TransferStore adapters** | Vercel KV, in-memory (tests). Upstash Redis planned for v0.2. Custom adapters via `TransferStore` interface. |
+| **TransferStore adapters** | Upstash Redis (production, via `@upstash/redis` — works with Vercel KV / Upstash REST env vars), in-memory (tests). Custom adapters via the `TransferStore` interface. |
 | **Host applications (iframe)** | Any host page that hosts an iframe and supports `window.open` + `postMessage`. Tested against generic parent pages in CI. Real-host integration (SharePoint web part config, Teams Tab manifest, Salesforce Canvas) is host-side tooling and out of bridge scope. |
 
 ---
@@ -342,34 +342,34 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 
 - [`examples/tenant-app`](./examples/tenant-app) — **Recommended starting point.** The embedded Next.js app demonstrating the popup-bridge flow end-to-end against a real Microsoft Entra app registration, deployed to a Vercel preview. Multi-tenant pattern with per-tenant configuration.
 - [`examples/host-shell`](./examples/host-shell) — the host page that embeds the tenant app in a cross-site iframe, so the CHIPS handoff can be exercised across two real origins.
-
-A minimal popup-only example app is planned for v0.2.
+- [`examples/keycloak-demo`](./examples/keycloak-demo) — the hosting runbook ([DEPLOY.md](./examples/keycloak-demo/DEPLOY.md)) behind the public [live demo](#live-demo): both apps on two Vercel origins against a self-hosted Keycloak.
 
 ---
 
 ## Roadmap
 
-### v0.1.0 (current target)
+### Shipped (v0.1.0 → v0.2.0)
 
 - Popup-bridge transport (Mode A) for Next.js apps embedded in enterprise iframes
-- Auth.js v5 integration, App Router
-- TransferStore: Vercel KV adapter (production) + in-memory adapter (tests)
-- Provider-agnostic proof: Microsoft Entra in reference deployment + generic OIDC (Keycloak / Auth.js test provider) in CI
-- Multi-tenant reference example deployed to Vercel preview
+- Auth.js v5 integration, App Router (Next.js 14 / 15)
+- TransferStore: Upstash Redis adapter (production, via `@upstash/redis`) + in-memory adapter (tests), pluggable via the `TransferStore` interface
+- Provider-agnostic proof: Microsoft Entra in the reference deployment + generic OIDC (Keycloak) in CI and the public demo
+- Multi-tenant reference example (`tenant-app` + `host-shell`) deployed across two real Vercel origins; public Keycloak [live demo](#live-demo)
+- First-time (cold-start) handling: one silent `prompt=none` attempt against the host SSO before falling back to a "sign in on the host first" notice
+- `next-auth-bridge/middleware` Edge-safe routing surface (`createBridgeMiddleware`, `detectContext`)
 - Threat model documented; every Mode A invariant has a passing negative-case Vitest
-- semantic-release pipeline, Conventional Commits, commit-msg hook, branch protection on `main`
-- Auth.js docs recipe PR opened against authjs.dev
+- semantic-release pipeline, Conventional Commits, commit-msg hook, `main` ruleset, npm publish via OIDC Trusted Publishing with SLSA provenance
 
-### v0.2
+### Planned
 
-- **Mode B transport** — `ASWebAuthenticationSession`-based bridge for Next.js apps wrapped as native iOS via [PWABuilder's pwa-shell](https://github.com/pwa-builder/pwabuilder-ios). Unlocks passkeys in iCloud Keychain, autofill, Sign in with Apple, and saved credentials inside the wrapper. Additive on the v0.1 transferStore — no breaking changes for v0.1.0 consumers.
-- Upstash Redis adapter (second non-Vercel proof of the pluggable interface)
+- **Mode B transport** — `ASWebAuthenticationSession`-based bridge for Next.js apps wrapped as native iOS via [PWABuilder's pwa-shell](https://github.com/pwa-builder/pwabuilder-ios). Unlocks passkeys in iCloud Keychain, autofill, Sign in with Apple, and saved credentials inside the wrapper. Additive on the existing transferStore — no breaking changes for current consumers.
+- Auth.js docs recipe contributed upstream to authjs.dev (in-repo source finalized in [`docs/recipes`](./docs/recipes/authjs-cross-context-bridge.mdx); upstream PR pending)
 - Minimal popup-only example app for Teams Tab / SharePoint iframe scenarios without PWA wrapping
 - Pages Router support
 - Auth.js v4 (legacy NextAuth) support — if community demand
 - Android (Bubblewrap / TWA) — investigated; may "just work" via Chrome Custom Tabs
 
-### v0.3+
+### Later
 
 - Magic-link providers (handle-based mint without OAuth code)
 - Password providers (same)
@@ -386,7 +386,7 @@ A minimal popup-only example app is planned for v0.2.
 
 ## Contributing
 
-Issues and discussions welcome at [GitHub](https://github.com/<owner>/next-auth-bridge). PRs require:
+Issues and discussions welcome at [GitHub](https://github.com/azatdavliatshin/next-auth-bridge). PRs require:
 
 - A test for the change (Vitest).
 - An update to the relevant section in [docs/threat-model.md](./docs/threat-model.md) if security-relevant.
@@ -406,4 +406,4 @@ MIT. See [LICENSE](./LICENSE).
 
 Thanks to [Kirill Evtushenko](https://www.linkedin.com/in/kirill-evtushenko/) ([GitHub](https://github.com/KirillEvtushenko)) for co-developing the popup-bridge pattern this package generalizes.
 
-Built on top of [Auth.js](https://authjs.dev/) (which it complements, not replaces). Cross-context cookie handling follows the [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) specification. Mode B (planned for v0.2) will implement [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) using Apple's [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession) API.
+Built on top of [Auth.js](https://authjs.dev/) (which it complements, not replaces). Cross-context cookie handling follows the [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) specification. The planned Mode B will implement [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) using Apple's [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession) API.
