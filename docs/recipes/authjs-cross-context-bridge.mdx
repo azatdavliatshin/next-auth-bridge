@@ -171,9 +171,9 @@ export function middleware(request: NextRequest): NextResponse {
 }
 ```
 
-The same subpath also exports `detectContext`, which classifies a request as top-level vs.
-embedded if you want to branch on context directly (for example, on a sign-in page that
-shows the popup launcher only when embedded).
+The same subpath also exports `detectContext`, a client-side helper that detects the current
+runtime context — `'browser' | 'iframe' | 'pwa-shell'` — if you want to branch on context
+directly (for example, on a sign-in page that shows the popup launcher only when embedded).
 
 ## The popup and the launcher
 
@@ -190,6 +190,8 @@ import { runPopupFlow } from "next-auth-bridge";
 
 export default function PopupPage() {
   useEffect(() => {
+    // Minimal warm path. The reference popup adds a session-first check and the silent
+    // prompt=none cold-start — see "First-time users (cold start)" below.
     // Capture the opener once, up front — it is the postMessage target.
     const opener = window.opener as Window | null;
     if (!opener) return;
