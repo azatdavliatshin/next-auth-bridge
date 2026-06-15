@@ -404,6 +404,6 @@ MIT. See [LICENSE](./LICENSE).
 
 ## Acknowledgments
 
-Thanks to [Kirill Evtushenko](https://www.linkedin.com/in/kirill-evtushenko/) for co-developing the popup-bridge pattern this package generalizes.
+Thanks to [Kirill Evtushenko](https://www.linkedin.com/in/kirill-evtushenko/) ([GitHub](https://github.com/KirillEvtushenko)) for co-developing the popup-bridge pattern this package generalizes.
 
 Built on top of [Auth.js](https://authjs.dev/) (which it complements, not replaces). Cross-context cookie handling follows the [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) specification. Mode B (planned for v0.2) will implement [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) using Apple's [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession) API.
