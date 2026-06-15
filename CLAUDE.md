@@ -25,7 +25,7 @@ Trunk-based (GitHub Flow). One long-lived branch:
 
 All work — maintainer and external contributor alike — flows the same way: branch a short-lived `feat/…` / `fix/…` / `chore/…` branch off `main`, commit using Conventional Commits, open a PR against `main`. PRs are **rebase-merged** (the `main` ruleset requires linear history; rebasing keeps each Conventional-Commit subject intact so semantic-release can parse it). The full loop and release/recovery gotchas are in [docs/dev-workflow.md](docs/dev-workflow.md).
 
-There is no `dev` branch. GSD planning artifacts (`.planning/`) live in the tree on `main` like any other internal docs — they are never part of the published npm package (the package ships only `packages/core/dist`, controlled by its `files` allowlist), so they cost nothing on the trunk and keep decision history in one place.
+There is no `dev` branch. GSD planning artifacts (`.planning/`) are **local-only and off-trunk** — they are git-ignored (as of 2026-06-15) so they never land on `main` or in PR diffs, keeping the trunk's history about the product (code + user-facing docs) rather than orchestration bookkeeping. They were never part of the published npm package either (the package ships only `packages/core/dist`, controlled by its `files` allowlist). Decision history that should be shared belongs in PR descriptions and in `docs/`; `.planning/` is working state on the maintainer's machine. (Earlier history retains the snapshots committed before the untrack.)
 
 ### Versioning and releases
 
@@ -139,7 +139,7 @@ It is library-first. The reference example apps in this repo are the only determ
 
 **Core Value:** The popup-bridge (Mode A) pattern works end-to-end and is *deeply correct* — every threat-model invariant holds under negative-case test coverage. Correctness of the security-critical handoff is the one thing that cannot fail; breadth of transports and hosts is secondary.
 
-GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json) in the tree on `main` — internal tooling state, but harmless on the trunk: it never reaches the published npm package (the package ships only `packages/core/dist`, per its `files` allowlist). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
+GSD planning lives in `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, config.json) as **local-only, git-ignored** internal tooling state — kept off `main` so the trunk stays product-focused (it never reached the published npm package either; the package ships only `packages/core/dist`, per its `files` allowlist). Stack, conventions, and architecture for this project are documented in the hand-authored sections above and in `docs/`.
 
 <!-- GSD:project-end -->
 

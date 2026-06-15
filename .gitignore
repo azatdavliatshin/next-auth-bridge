@@ -65,3 +65,7 @@ examples/*/.next/
 examples/*/node_modules/
 examples/*/out/
 examples/*/dist/
+
+# GSD planning artifacts — local-only, off-trunk (see CLAUDE.md "Development workflow").
+# Untracked as of 2026-06-15; prior history retains the earlier .planning/ snapshots.
+.planning/
