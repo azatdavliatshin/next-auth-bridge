@@ -101,6 +101,12 @@ function decodeJwtClaims(
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [activeProvider],
+  // Route Auth.js OAuth errors to /auth/popup so a silent prompt=none failure
+  // (login_required = no host SSO) lands on ?error=... and renders the popup's
+  // own "sign in to the host first" notice instead of Auth.js's default error
+  // page. A top-level standalone sign-in error also lands here, which already
+  // renders a sane top-level notice — acceptable for the example app.
+  pages: { error: "/auth/popup" },
   callbacks: {
     jwt({ token, account, profile }) {
       // Capture the tenant id once at sign-in and carry it on the token so the
