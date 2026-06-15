@@ -1,5 +1,5 @@
 {/* Target slug for the authjs.dev PR: cross-context-iframe-bridge */}
-{/* Destination in nextauthjs/next-auth: docs/pages/guides/cross-context-iframe-bridge.mdx + a _meta.js entry. */}
+{/* verify current authjs.dev docs structure + _meta convention at PR time. */}
 {/* This file is the in-repo source of record; the cross-repo PR copies it, adapting front-matter/imports to the authjs docs conventions. */}
 
 # Cross-context authentication for embedded Next.js apps
@@ -10,10 +10,22 @@ already carries an active identity-provider session, but the embedded app cannot
 Third-party cookie restrictions and the cross-origin boundary mean a normal sign-in flow
 either fails silently or forces the user through a redirect that the iframe cannot complete.
 
-[`next-auth-bridge`](https://www.npmjs.com/package/next-auth-bridge) solves this with a
-small, security-reviewed handoff: a popup runs in the top-level browser context, silent-auths
-against the host's existing IdP session, and hands the resulting session back to the embedded
-app through a one-time-use server-side transfer store — never through the URL.
+This guide describes a reusable **pattern** for that problem: a popup running in the
+top-level browser context silent-auths against the host's existing IdP session and hands
+the resulting session back to the embedded app through a one-time-use server-side transfer
+store — never through the URL. The code below uses
+[`next-auth-bridge`](https://www.npmjs.com/package/next-auth-bridge) as one reference
+implementation of the pattern, but the shape is what matters: a server-side handle store
+mediating a one-time-code exchange across the trust boundary.
+
+- **Live demo:** [nab-host.vercel.app](https://nab-host.vercel.app/) — sign in on the host,
+  watch the embedded app sign itself in via the popup bridge with no second prompt.
+- **Reference apps:** [`examples/tenant-app`](https://github.com/azatdavliatshin/next-auth-bridge/tree/main/examples/tenant-app)
+  (the embedded app) and
+  [`examples/host-shell`](https://github.com/azatdavliatshin/next-auth-bridge/tree/main/examples/host-shell)
+  (the host page that embeds it across two real origins).
+- **Threat model:** [docs/threat-model.md](https://github.com/azatdavliatshin/next-auth-bridge/blob/main/docs/threat-model.md)
+  — the security invariants the handoff must hold.
 
 ## The architecture
 
@@ -46,52 +58,212 @@ token-smuggling hack:
 npm install next-auth-bridge
 ```
 
-## Wiring the bridge
+The package exposes three import paths: `next-auth-bridge` (the main entry —
+`createAuthBridge`, `runPopupFlow`, `openAuthPopup`, and the other client helpers),
+`next-auth-bridge/store/kv` (the production transfer-store adapter), and
+`next-auth-bridge/middleware` (the Edge-safe routing surface — `createBridgeMiddleware`,
+`detectContext`). Edge middleware **must** import from the `/middleware` subpath: the main
+entry reaches `node:crypto` (via the store), which a Next.js Edge bundle cannot include.
 
-`createAuthBridge` takes one options object and returns both route handlers — `bridge` and
-`consume` — as Web-standard `(request) => Promise<Response>` functions. Wire them into your
-App Router route handlers:
+## Wiring the bridge from one shared config
+
+Call the factory **once** in a shared module and export both handlers from it. Calling it
+twice would create two independent transfer stores, and a handle minted by one would never
+be found by the other.
+
+```ts
+// lib/auth-bridge.ts
+import { createAuthBridge } from "next-auth-bridge";
+import { createKVTransferStore } from "next-auth-bridge/store/kv";
+import { auth } from "@/auth"; // your Auth.js instance
+
+// One config wires both routes. `createAuthBridge` returns { bridge, consume }.
+export const { bridge, consume } = createAuthBridge({
+  // Production transfer store (Vercel KV / Upstash via env). Use
+  // createInMemoryTransferStore() from "next-auth-bridge" in tests.
+  store: createKVTransferStore(),
+
+  // The real security gate: the bridge mints a handle only after Auth.js
+  // confirms a genuine session. `verifySession` returns the session (or null) —
+  // pass `auth` straight through.
+  verifySession: () => auth(),
+
+  // The cross-site Origin allowlist for the postMessage exchange. The embedding
+  // host and your app are distinct sites (the whole point of the CHIPS handoff)
+  // — list both.
+  allowedOrigins: [
+    process.env.HOST_SHELL_ORIGIN ?? "",
+    process.env.APP_ORIGIN ?? "",
+  ],
+
+  // HTTPS deployment → the __Secure- session-cookie name.
+  secure: true,
+});
+```
+
+Then each route handler imports its half of the pair and adapts it to the App Router's
+handler signature — both handlers are Web-standard `(request) => Promise<Response>`
+functions:
 
 ```ts
 // app/auth/bridge/route.ts
-import { createAuthBridge } from "next-auth-bridge";
-import { createInMemoryTransferStore } from "next-auth-bridge";
-import { auth } from "@/auth"; // your Auth.js instance
+import { bridge } from "@/lib/auth-bridge";
 
-const store = createInMemoryTransferStore(); // swap for a durable store in production
-
-const { bridge, consume } = createAuthBridge({
-  store,
-  verifySession: async () => (await auth())?.user ?? null,
-  allowedOrigins: ["https://your-app.example.com"],
-});
-
-export const GET = bridge;
+export const GET = (request: Request): Promise<Response> => bridge(request);
+export const POST = (request: Request): Promise<Response> => bridge(request);
 ```
 
 ```ts
 // app/auth/consume/route.ts
-// Re-export `consume` from the same single wiring (do not call createAuthBridge twice).
-export { consume as GET } from "../bridge/route";
+import { consume } from "@/lib/auth-bridge";
+
+export const GET = (request: Request): Promise<Response> => consume(request);
 ```
 
 The three required options are the irreducible wiring:
 
-- `store` — the transfer-store adapter. `createInMemoryTransferStore()` is the reference
-  implementation for development and tests; a durable adapter (e.g. the `./store/kv` subpath
-  export) backs production.
+- `store` — the transfer-store adapter. `createInMemoryTransferStore()` (from the package
+  root) is the reference implementation for development and tests; a durable adapter behind
+  the `next-auth-bridge/store/kv` subpath export backs production.
 - `verifySession` — returns the current session (or `null`); the bridge independently checks
   for a real session before minting a handle.
 - `allowedOrigins` — the origins permitted in the `postMessage` exchange.
 
-A production transfer store is available behind the package's `./store/kv` subpath export:
+## Routing embedded requests to the popup
+
+A request that arrives inside an iframe cannot complete a full-page identity-provider
+redirect — it would break inside the frame. The middleware rewrites such an unauthenticated
+embedded request to the popup entry instead (the visible URL is unchanged), so the user can
+launch the top-level popup. This is **UX routing, not a security boundary**: the real gate
+is the server-side session check on the bridge route.
+
+Import the middleware factory from the Edge-safe `next-auth-bridge/middleware` subpath — the
+package root reaches `node:crypto` (via the store) and cannot be bundled into an Edge
+function.
 
 ```ts
-import { createKVTransferStore } from "next-auth-bridge/store/kv";
+// middleware.ts
+import { createBridgeMiddleware } from "next-auth-bridge/middleware";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// Edge-safe, UX-only signal — presence of the session cookie, not a verification.
+const SESSION_COOKIE = "__Secure-authjs.session-token";
+
+const route = createBridgeMiddleware({
+  popupEntryPath: "/auth/popup",
+  isAuthenticated: (req) =>
+    req.headers.get("cookie")?.includes(`${SESSION_COOKIE}=`) ?? false,
+});
+
+export function middleware(request: NextRequest): NextResponse {
+  const decision = route(request);
+  if (decision?.action === "rewrite") {
+    return NextResponse.rewrite(decision.destination);
+  }
+  return NextResponse.next();
+}
 ```
+
+The same subpath also exports `detectContext`, which classifies a request as top-level vs.
+embedded if you want to branch on context directly (for example, on a sign-in page that
+shows the popup launcher only when embedded).
+
+## The popup and the launcher
+
+The flow has two client halves. The **popup page** runs top-level, reads the existing
+session, posts the one-time handle to its opener, and self-closes. It never navigates
+itself — a self-navigation would null `window.opener` and lose the handle.
+
+```tsx
+// app/auth/popup/page.tsx
+"use client";
+
+import { useEffect } from "react";
+import { runPopupFlow } from "next-auth-bridge";
+
+export default function PopupPage() {
+  useEffect(() => {
+    // Capture the opener once, up front — it is the postMessage target.
+    const opener = window.opener as Window | null;
+    if (!opener) return;
+    void runPopupFlow({
+      opener,
+      hostOrigin: process.env.NEXT_PUBLIC_APP_ORIGIN ?? window.location.origin,
+      // fetch + bridgePath default to global fetch and "/auth/bridge".
+    }).then(() => window.close());
+  }, []);
+
+  return <p>Completing sign-in…</p>;
+}
+```
+
+The **launcher** lives on your sign-in UI. It opens the popup, awaits the one-time handle
+the popup posts back, redeems it at the consume route for the partitioned session cookie,
+then soft-refreshes so the now-authenticated frame re-reads its session.
+
+```tsx
+// a client component on your sign-in page
+"use client";
+
+import { openAuthPopup, OpenAuthPopupError } from "next-auth-bridge";
+
+const appOrigin = process.env.NEXT_PUBLIC_APP_ORIGIN ?? window.location.origin;
+
+export async function signInViaBridge(): Promise<void> {
+  try {
+    // Open the top-level popup and await the one-time handle it posts back.
+    const { code } = await openAuthPopup({
+      allowedOrigins: [appOrigin],
+      popupUrl: "/auth/popup",
+      timeoutMs: 60_000,
+    });
+
+    // Redeem the handle for the partitioned session cookie. credentials:"include"
+    // so the Set-Cookie commits under the correct (top-level) CHIPS partition.
+    await fetch(`/auth/consume?code=${encodeURIComponent(code)}`, {
+      credentials: "include",
+      redirect: "follow",
+    });
+
+    window.location.reload();
+  } catch (err) {
+    if (err instanceof OpenAuthPopupError) {
+      // err.reason is "popup-blocked" | "popup-closed" | "timeout" | "auth-error"
+      console.error("sign-in failed:", err.reason);
+    }
+  }
+}
+```
+
+### First-time users (cold start)
+
+The flow above is the **warm** path: a top-level session already exists (the host signed
+the user in under the same identity provider), so the popup just reads it and hands it back.
+
+But a first-time embedded user may have no app session *yet*, even though the host's IdP SSO
+is active. To cover that without an extra prompt, the popup — when it runs top-level and
+finds no session — makes **one silent OIDC attempt** against the host's existing SSO:
+`signIn(provider, { redirectTo: "/auth/popup?silent=attempted" }, { prompt: "none" })`. If
+the host SSO is live, the provider returns an authorization code with no user interaction
+and the session is minted on the way back. A one-shot guard (`?silent=attempted`) prevents a
+redirect loop.
+
+Only if that silent attempt comes back with `login_required` — i.e. there is genuinely no
+host SSO to inherit — does the popup fall back to a "sign in on the host first" notice. It
+never runs an interactive login inside the popup.
+
+This cold-start handling is **example-app behavior**, not a package API — it lives in the
+reference popup page
+([`examples/tenant-app/app/auth/popup/page.tsx`](https://github.com/azatdavliatshin/next-auth-bridge/blob/main/examples/tenant-app/app/auth/popup/page.tsx)),
+where you can adapt the provider id and copy to your own deployment.
 
 ## Where to go next
 
 The bridge handlers are framework-agnostic Web-standard functions, so the same wiring works
-anywhere App Router route handlers run. The popup and origin-check helpers are exported from
-the package root for apps that need to drive the popup flow directly.
+anywhere App Router route handlers run. Start from the
+[reference apps](https://github.com/azatdavliatshin/next-auth-bridge/tree/main/examples) to see
+the full loop — host shell, embedded tenant app, popup, and cold-start — wired against a
+real deployment, and read the
+[threat model](https://github.com/azatdavliatshin/next-auth-bridge/blob/main/docs/threat-model.md)
+before adapting the pattern to your own identity provider.
