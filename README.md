@@ -20,6 +20,7 @@ pnpm add next-auth-bridge
 - [Why this exists](#why-this-exists)
 - [Live demo](#live-demo)
 - [Quick start](#quick-start)
+- [Environment variables](#environment-variables)
 - [How it works](#how-it-works)
 - [Compatibility matrix](#compatibility-matrix)
 - [Why this, and not...?](#why-this-and-not)
@@ -221,6 +222,56 @@ That's the minimal integration. See [`examples/tenant-app`](./examples/tenant-ap
 complete embedded app showing the popup-bridge flow end-to-end against a real Microsoft
 Entra app registration deployed to Vercel preview, and [`examples/host-shell`](./examples/host-shell)
 for the host page that embeds it.
+
+---
+
+## Environment variables
+
+The library itself reads **no** environment variables. Everything `createAuthBridge`
+needs — the transfer store, `verifySession`, the origin allowlist, the `secure` flag — is
+passed in as configuration, so you can source those values however your app prefers. The
+variables below are what a real deployment ends up needing: a few come from Auth.js, one
+pair is read by the default KV store adapter, and the rest are the origins you choose to
+feed into the config.
+
+### Required
+
+| Variable | Read by | Purpose |
+| --- | --- | --- |
+| `AUTH_SECRET` | Auth.js (peer dependency) | Session/JWT encryption secret. Generate with `npx auth secret`. |
+| _Your identity-provider credentials_ | Auth.js provider | Whatever your chosen Auth.js OAuth provider requires — e.g. `AUTH_MICROSOFT_ENTRA_ID_ID` / `_SECRET` / `_ISSUER` for Microsoft Entra, or `AUTH_KEYCLOAK_ID` / `_SECRET` / `_ISSUER` for Keycloak. |
+
+### Transfer store (default KV adapter)
+
+`createKVTransferStore()` wraps `@upstash/redis`, which auto-configures from the environment
+via `Redis.fromEnv()`. Set **one** of these pairs (the `KV_*` names are what Vercel KV
+injects; the `UPSTASH_*` names are the Upstash-native equivalents — they are interchangeable):
+
+| Variable | Purpose |
+| --- | --- |
+| `KV_REST_API_URL` _or_ `UPSTASH_REDIS_REST_URL` | Upstash Redis REST endpoint. |
+| `KV_REST_API_TOKEN` _or_ `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token. |
+
+Not needed if you pass your own store (e.g. `createInMemoryTransferStore()` in tests, or a
+custom adapter) to `createAuthBridge({ store })`.
+
+### Origins (you choose how to supply these)
+
+These are not read by the package — they are values you pass into the config and the client
+helpers. The Quick Start above wires them from `process.env`, which is the convention the
+example apps follow:
+
+| Variable | Used for |
+| --- | --- |
+| `APP_ORIGIN` | Your app's own origin — a `createAuthBridge({ allowedOrigins })` entry and the popup `postMessage` receiver. |
+| `HOST_SHELL_ORIGIN` | The separate site that cross-site-iframes your app — the other `allowedOrigins` entry. Must be a different site from `APP_ORIGIN` for the CHIPS handoff to be real. |
+| `NEXT_PUBLIC_APP_ORIGIN` | Browser-exposed copy of the app origin for the client popup page (falls back to `window.location.origin`). |
+
+The example apps ship a fully annotated `.env.example` enumerating every variable for the
+embedded-iframe scenario, including the Entra/Keycloak provider switch
+(`NEXT_PUBLIC_AUTH_PROVIDER`): see
+[`examples/tenant-app/.env.example`](./examples/tenant-app/.env.example) and
+[`examples/host-shell/.env.example`](./examples/host-shell/.env.example).
 
 ---
 
