@@ -23,7 +23,11 @@ export { createAuthBridge } from "./create-auth-bridge.js";
 
 // The pure auth helpers — stay SEPARATELY importable from the package root, NOT
 // bundled into the createAuthBridge return (D-11).
-export { getAuthCookieName, sanitizeNext } from "./auth-helpers.js";
+export {
+  getAuthCookieName,
+  getBetterAuthCookieName,
+  sanitizeNext,
+} from "./auth-helpers.js";
 
 // The wiring types the app supplies to createAuthBridge (D-04 / D-11). The KV
 // adapter stays behind the ./store/kv subpath and is deliberately NOT re-exported
