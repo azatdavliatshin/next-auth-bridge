@@ -47,4 +47,17 @@ describe("harvestSessionChunks (AGNOSTIC-02 — single opaque Better Auth sessio
     expect(names).not.toContain("better-auth.account_data");
     expect(names).not.toContain("better-auth.dont_remember");
   });
+
+  it("harvests every numeric chunk ${base}.0 / ${base}.1 (the Auth.js chunk path still works)", () => {
+    // Pins the guard in the OTHER direction (D-04): integer-suffixed chunk names
+    // ARE harvested. Kept as a separate case so it does not dilute the
+    // single-opaque narrative above.
+    const jar2 = new Map<string, string>([
+      [base, "v"],
+      [`${base}.0`, "c0"],
+      [`${base}.1`, "c1"],
+    ]);
+
+    expect(harvestSessionChunks(jar2, base).length).toBe(3);
+  });
 });
