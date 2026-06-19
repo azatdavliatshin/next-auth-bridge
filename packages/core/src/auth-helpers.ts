@@ -84,3 +84,24 @@ export function getAuthCookieName(opts: {
     ? "authjs.session-token"
     : "__Secure-authjs.session-token";
 }
+
+/**
+ * Resolve the Better Auth session-cookie base name from the `secure` flag
+ * (AGNOSTIC-05 / D-08).
+ *
+ * Mirrors getAuthCookieName's `secure`→prefix branching for the Better Auth
+ * ecosystem: `secure === false` yields the non-prefixed dev/test name
+ * `better-auth.session_token`; otherwise (the default — `secure` true or
+ * omitted) the secure-context name `__Secure-better-auth.session_token`. The
+ * `__Secure-` literal is DERIVED from the flag here, never hardcoded by a
+ * consumer — the exact dev/prod literal-mismatch trap AGNOSTIC-05 closes, so a
+ * Better Auth example imports this instead of pinning a `__Secure-` string.
+ *
+ * Unlike getAuthCookieName there is no `cookieName` override param (D-08): this
+ * helper's only job is the Better Auth default base name.
+ */
+export function getBetterAuthCookieName(opts: { secure?: boolean }): string {
+  return opts.secure === false
+    ? "better-auth.session_token"
+    : "__Secure-better-auth.session_token";
+}
