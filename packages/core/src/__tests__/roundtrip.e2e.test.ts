@@ -37,7 +37,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createAuthBridge, openAuthPopup, runPopupFlow } from "../index.js";
+import {
+  createAuthBridge,
+  getBetterAuthCookieName,
+  openAuthPopup,
+  runPopupFlow,
+} from "../index.js";
 import type { OpenAuthPopupDeps } from "../open-auth-popup.js";
 import {
   fakeVerifySession,
@@ -315,3 +320,83 @@ describe("end-to-end roundtrip (success criterion 5 / D-11) + THREAT-07 URL hygi
     await expect(handlePromise).resolves.toEqual({ code });
   });
 });
+
+// AGNOSTIC-01 / D-05 / D-06 — the agnostic-path demonstration as one continuous
+// story, on the SAME proven harness as the headline roundtrip above (real bridge
+// + real consume handlers, the dependency-free in-memory store). It proves an
+// ARBITRARY non-Auth.js cookie name — a Better Auth base that shares NO `authjs.`
+// prefix — flows VERBATIM through bridge -> harvest -> consume, with the matching
+// chunks (and ONLY those) re-set under their exact names.
+//
+// Parametrized over BOTH bases via describe.each so a SINGLE code path proves the
+// http-dev base (`better-auth.session_token`) AND the `__Secure-` prod base (D-06)
+// — no copy-paste drift. Each base is sourced from getBetterAuthCookieName({ secure })
+// (D-07): this E2E is that helper's first real regression consumer, so the
+// `__Secure-` literal is NEVER hardcoded in the test body (AGNOSTIC-05 intent).
+describe.each([
+  { label: "http-dev base", secure: false },
+  { label: "__Secure- prod base", secure: true },
+])(
+  "AGNOSTIC-01 Better-Auth cookieName roundtrip ($label)",
+  ({ secure }) => {
+    it("flows an arbitrary Better Auth cookieName verbatim through bridge -> harvest -> consume", async () => {
+      // The base is DERIVED from the secure flag, not hardcoded (D-07 / AGNOSTIC-05).
+      const base = getBetterAuthCookieName({ secure });
+
+      // Mirror the headline TOKEN_CHUNKS shape: the un-suffixed base + its two
+      // numeric chunks. These are the ONLY cookies the harvest must carry across.
+      const chunks: ReadonlyArray<{ name: string; value: string }> = [
+        { name: base, value: "ba.tok.en" },
+        { name: `${base}.0`, value: "ba-chunk-zero" },
+        { name: `${base}.1`, value: "ba-chunk-one" },
+      ];
+      const expectedPairs = chunks.map((c) => `${c.name}=${c.value}`).sort();
+
+      // One shared in-memory store wires BOTH real handlers (no KV on the bench).
+      // The consumer passes the BA base as `cookieName` — exactly what a Better
+      // Auth example does, sourcing it from getBetterAuthCookieName({ secure }).
+      // This is the seam under test: the harvest base is an arbitrary non-Auth.js
+      // name, and the matching chunks must still flow verbatim (AGNOSTIC-01).
+      const store = makeTestStore();
+      const api = createAuthBridge({
+        store,
+        verifySession: fakeVerifySession({ user: {} }),
+        allowedOrigins: [ORIGIN],
+        cookieName: base,
+      });
+
+      // The popup drives the REAL bridge: a verified session + the BA chunk
+      // cookies → 200 { code }. The bridge harvests the base + its numeric chunks.
+      const bridgeRes = await api.bridge(
+        makeRequest(BRIDGE_URL, {
+          headers: {
+            Origin: ORIGIN,
+            Cookie: chunks.map((c) => `${c.name}=${c.value}`).join("; "),
+          },
+        }),
+      );
+      expect(bridgeRes.status).toBe(200);
+      const { code } = (await bridgeRes.json()) as { code: string };
+      // The handle is opaque — never the BA cookie name, never a token value.
+      expect(code).toMatch(/^[0-9a-f]{64}$/);
+
+      // The opaque code crosses the trust seam; the OPENER drives consume to a 302
+      // (transport-agnostic direct drive, matching the headline happy path, D-09).
+      const next = "/home";
+      const consumeUrl = `${ORIGIN}/auth/consume?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`;
+      // prettier-ignore
+      const consumeRes = await api.consume(makeRequest(consumeUrl, { headers: { Origin: ORIGIN } }));
+      expect(consumeRes.status).toBe(302);
+
+      // Read Set-Cookie via getSetCookie() ONLY (array) — never .get (Pitfall 3).
+      const cookies = consumeRes.headers.getSetCookie();
+      // EXACTLY the harvested chunks re-set — no more, no fewer.
+      expect(cookies.length).toBe(chunks.length);
+
+      // The AGNOSTIC-01 proof: the names round-trip VERBATIM. A Better Auth name
+      // with no `authjs.` prefix is re-set unchanged — no normalization, no rename.
+      const roundTripped = cookies.map((c) => c.split(";")[0]).sort();
+      expect(roundTripped).toEqual(expectedPairs);
+    });
+  },
+);
