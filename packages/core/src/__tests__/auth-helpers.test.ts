@@ -16,7 +16,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { getAuthCookieName, sanitizeNext } from "../auth-helpers.js";
+import {
+  getAuthCookieName,
+  getBetterAuthCookieName,
+  sanitizeNext,
+} from "../auth-helpers.js";
 
 describe("sanitizeNext (ROUTE-06 / THREAT-08 — open-redirect control)", () => {
   // ROUTE-06 — a safe, same-origin path passes through unchanged.
@@ -106,5 +110,29 @@ describe("getAuthCookieName (D-16 — cookie-name resolution)", () => {
     expect(
       getAuthCookieName({ cookieName: "custom.session", secure: false }),
     ).toBe("custom.session");
+  });
+});
+
+describe("getBetterAuthCookieName (AGNOSTIC-05 — env-derived BA cookie name)", () => {
+  // AGNOSTIC-05 — secure-context default: the __Secure- prefixed BA name.
+  it("resolves __Secure-better-auth.session_token by default", () => {
+    expect(getBetterAuthCookieName({})).toBe(
+      "__Secure-better-auth.session_token",
+    );
+  });
+
+  // AGNOSTIC-05 — secure:false yields the non-prefixed dev/test BA name.
+  it("resolves the non-prefixed better-auth.session_token under secure:false", () => {
+    expect(getBetterAuthCookieName({ secure: false })).toBe(
+      "better-auth.session_token",
+    );
+  });
+
+  // AGNOSTIC-05 — secure:true is the explicit secure-context default; the
+  // __Secure- prefix is derived from the flag, never hardcoded by a consumer.
+  it("resolves __Secure-better-auth.session_token under secure:true", () => {
+    expect(getBetterAuthCookieName({ secure: true })).toBe(
+      "__Secure-better-auth.session_token",
+    );
   });
 });
