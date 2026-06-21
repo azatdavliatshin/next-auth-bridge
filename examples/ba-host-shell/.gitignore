@@ -1,0 +1,6 @@
+# Local Better Auth session DB (runtime artifact; the committed
+# better-auth-schema.sql is the source of truth, applied to a fresh ba.sqlite on
+# first run / in tests). On deploy the DB is Turso/libSQL, not a file.
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
