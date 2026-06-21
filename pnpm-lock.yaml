@@ -128,8 +128,8 @@ importers:
         specifier: 5.0.0-beta.31
         version: 5.0.0-beta.31(next@16.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       next-auth-bridge:
-        specifier: ^0.2.0
-        version: 0.2.0(@upstash/redis@1.38.0)
+        specifier: workspace:*
+        version: link:../../packages/core
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -2562,15 +2562,6 @@ packages:
 
   nerf-dart@1.0.0:
     resolution: {integrity: sha512-EZSPZB70jiVsivaBLYDCyntd5eH8NTSMOn3rB+HxwdmKThGELLdYv8qVIMWvZEFy9w8ZZpW9h9OB32l1rGtj7g==}
-
-  next-auth-bridge@0.2.0:
-    resolution: {integrity: sha512-su7JG36qlyNhuiF2hMLkKPYP19Jjq0OB4w0aJiTW2wfZNsvtgeOr+x7WyB7Nx0CWfQFb3h1ULp+HIszC0OOjYw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      '@upstash/redis': ^1.38.0
-    peerDependenciesMeta:
-      '@upstash/redis':
-        optional: true
 
   next-auth@5.0.0-beta.31:
     resolution: {integrity: sha512-1OBgCKPzo+S7UWWMp3xgvGvIJ0OpV7B3vR4ZDRqD9a4Ch+OT6dakLXG9ivhtmIWVa71nTSXattOHyCg8sNi8/Q==}
@@ -5791,10 +5782,6 @@ snapshots:
   neo-async@2.6.2: {}
 
   nerf-dart@1.0.0: {}
-
-  next-auth-bridge@0.2.0(@upstash/redis@1.38.0):
-    optionalDependencies:
-      '@upstash/redis': 1.38.0
 
   next-auth@5.0.0-beta.31(next@16.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7):
     dependencies:
