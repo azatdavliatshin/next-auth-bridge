@@ -8,7 +8,7 @@
     "build": "next build",
     "test": "vitest run --passWithNoTests",
     "db:generate": "better-auth generate --output better-auth-schema.sql",
-    "seed": "node --experimental-strip-types scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "next": "16.2.7",
@@ -28,6 +28,7 @@
     "@types/react": "*",
     "@types/react-dom": "*",
     "@better-auth/cli": "latest",
+    "tsx": "^4.19.2",
     "vitest": "^4.1.8"
   }
 }
