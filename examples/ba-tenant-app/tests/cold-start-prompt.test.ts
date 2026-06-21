@@ -14,12 +14,37 @@
 //
 // `any` is permitted ONLY in this test scaffolding per CLAUDE.md.
 
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import Database from "better-sqlite3";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AUTH_PROVIDER_ID_SILENT } from "@/lib/auth-provider";
 
 const ISSUER =
   "https://keycloak.example.test/realms/bridge-agnosticism";
+
+// Hermetic DB: driving signInWithOAuth2 writes a `verification` row, so the test
+// needs a schema-applied SQLite file of its OWN — never the gitignored dev
+// `ba.sqlite` (absent on a fresh checkout / CI). Mirror the seed-idempotent suite:
+// a fresh temp file with the generated schema, set via BA_SQLITE_PATH BEFORE
+// lib/auth is imported (it reads the path at module-eval time).
+const tmpDir = mkdtempSync(join(tmpdir(), "ba-coldstart-"));
+const dbPath = join(tmpDir, "ba.sqlite");
+
+const SCHEMA_PATH = fileURLToPath(
+  new URL("../better-auth-schema.sql", import.meta.url),
+);
+
+/** Apply the generated Better Auth schema to a fresh better-sqlite3 file. */
+function applySchema(path: string): void {
+  const db = new Database(path);
+  db.exec(readFileSync(SCHEMA_PATH, "utf8"));
+  db.close();
+}
 
 // Minimal OIDC discovery document — only the endpoints Better Auth needs to
 // construct the authorization URL. Stubbed so the test never touches live Keycloak.
@@ -43,11 +68,16 @@ beforeAll(() => {
   process.env.AUTH_KEYCLOAK_ISSUER = ISSUER;
   process.env.BETTER_AUTH_URL = "http://localhost:3000";
   process.env.BETTER_AUTH_SECRET = "x".repeat(40);
-  process.env.BA_SQLITE_PATH = "ba.sqlite";
+  process.env.BA_SQLITE_PATH = dbPath;
+  applySchema(dbPath);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+afterAll(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
 });
 
 /** Drive the BA auth instance to GENERATE the silent provider's authz URL. */
