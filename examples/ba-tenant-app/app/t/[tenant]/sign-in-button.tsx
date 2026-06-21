@@ -4,10 +4,11 @@
 //
 // The tenant app is a STANDALONE app that also happens to be embeddable:
 //
-//   - TOP-LEVEL (visited directly, not in a frame): an ordinary Auth.js sign-in —
-//     a full-page redirect to the identity provider that sets the first-party
-//     session directly. This is how the user establishes a tenant session, and it
-//     is what the embedded popup later READS.
+//   - TOP-LEVEL (visited directly, not in a frame): an ordinary interactive
+//     sign-in — a full-page redirect to the identity provider that sets the
+//     first-party session directly. This is how the user establishes a tenant
+//     session, and it is what the embedded popup later READS. (Better Auth analog
+//     of the Auth.js `signIn` call: authClient.signIn.oauth2.)
 //
 //   - EMBEDDED (cross-site iframe inside a host): the browser blocks ordinary
 //     third-party cookies, so a plain sign-in cannot set a session here. Sign-in
@@ -15,11 +16,12 @@
 //     with the in-iframe popup entry via SignInLauncher.
 //
 // The context is a client-only determination (it reads window), so this is a
-// client component.
+// client component. The embedded branch (SignInLauncher) is the verbatim agnostic
+// core; only the top-level interactive call is the auth-library delta.
 
 import { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
 import { SignInLauncher } from "../../auth/sign-in-launcher";
+import { authClient } from "@/lib/auth-client";
 import { AUTH_PROVIDER_ID } from "@/lib/auth-provider";
 
 // Embedded in a frame, or a real top-level document? A cross-origin `top` access
@@ -54,7 +56,15 @@ export function SignInButton(): React.JSX.Element {
   // redirect). This sets the first-party tenant session that the embedded popup
   // will later read.
   return (
-    <button type="button" onClick={() => void signIn(AUTH_PROVIDER_ID)}>
+    <button
+      type="button"
+      onClick={() =>
+        void authClient.signIn.oauth2({
+          providerId: AUTH_PROVIDER_ID,
+          callbackURL: window.location.pathname,
+        })
+      }
+    >
       Sign in
     </button>
   );
