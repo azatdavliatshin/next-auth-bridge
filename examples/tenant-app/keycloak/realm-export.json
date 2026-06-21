@@ -40,7 +40,7 @@
     {
       "clientId": "bridge-example-app",
       "name": "Bridge example app",
-      "description": "Confidential popup-bridge demo client shared by both example apps (host-shell + tenant-app) so one Keycloak SSO session spans both origins. Auth-code + PKCE (S256), ROPC off. Secret set in deployment env only. See examples/keycloak-demo/DEPLOY.md.",
+      "description": "Confidential popup-bridge demo client shared by ALL four example apps (Auth.js host-shell + tenant-app on nab-host/nab-tenant, and the Better Auth ba-host-shell + ba-tenant-app on nab-ba-host/nab-ba-tenant) so one Keycloak SSO session spans both sets. Auth-code + PKCE (S256), ROPC off. Auth.js callback path is /api/auth/callback/keycloak; Better Auth genericOAuth callback path is /api/auth/oauth2/callback/{providerId} (keycloak interactive + keycloak-silent prompt=none). Secret set in deployment env only. See examples/keycloak-demo/DEPLOY.md.",
       "enabled": true,
       "publicClient": false,
       "standardFlowEnabled": true,
@@ -55,7 +55,19 @@
         "http://localhost:3000/api/auth/callback/keycloak",
         "http://localhost:3001/api/auth/callback/keycloak",
         "http://127.0.0.1:3000/api/auth/callback/keycloak",
-        "http://127.0.0.1:3001/api/auth/callback/keycloak"
+        "http://127.0.0.1:3001/api/auth/callback/keycloak",
+        "https://nab-ba-tenant.vercel.app/api/auth/oauth2/callback/keycloak",
+        "https://nab-ba-tenant.vercel.app/api/auth/oauth2/callback/keycloak-silent",
+        "https://nab-ba-host.vercel.app/api/auth/oauth2/callback/keycloak",
+        "https://nab-ba-host.vercel.app/api/auth/oauth2/callback/keycloak-silent",
+        "http://localhost:3002/api/auth/oauth2/callback/keycloak",
+        "http://localhost:3002/api/auth/oauth2/callback/keycloak-silent",
+        "http://localhost:3003/api/auth/oauth2/callback/keycloak",
+        "http://localhost:3003/api/auth/oauth2/callback/keycloak-silent",
+        "http://127.0.0.1:3002/api/auth/oauth2/callback/keycloak",
+        "http://127.0.0.1:3002/api/auth/oauth2/callback/keycloak-silent",
+        "http://127.0.0.1:3003/api/auth/oauth2/callback/keycloak",
+        "http://127.0.0.1:3003/api/auth/oauth2/callback/keycloak-silent"
       ],
       "webOrigins": [
         "https://nab-tenant.vercel.app",
@@ -63,7 +75,13 @@
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001"
+        "http://127.0.0.1:3001",
+        "https://nab-ba-tenant.vercel.app",
+        "https://nab-ba-host.vercel.app",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://127.0.0.1:3002",
+        "http://127.0.0.1:3003"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
