@@ -1,0 +1,33 @@
+{
+  "name": "ba-tenant-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "better-auth generate --output better-auth-schema.sql",
+    "seed": "node --experimental-strip-types scripts/seed.ts"
+  },
+  "dependencies": {
+    "next": "16.2.7",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "better-auth": "1.6.20",
+    "better-sqlite3": "12.11.1",
+    "@libsql/kysely-libsql": "0.4.1",
+    "@libsql/client": "0.17.4",
+    "next-auth-bridge": "workspace:*",
+    "@upstash/redis": "^1.38.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@better-auth/cli": "latest",
+    "vitest": "^4.1.8"
+  }
+}
