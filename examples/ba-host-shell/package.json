@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm --filter next-auth-bridge build && next build",
     "test": "vitest run --passWithNoTests",
     "db:generate": "better-auth generate --output better-auth-schema.sql"
   },
