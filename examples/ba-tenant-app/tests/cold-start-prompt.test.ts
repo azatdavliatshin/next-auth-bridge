@@ -137,5 +137,14 @@ describe("cold-start prompt=none (the honesty gate)", () => {
     expect(url).toContain(
       "redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fauth%2Foauth2%2Fcallback%2Fkeycloak-silent",
     );
+
+    // PKCE MUST be present: the bridge-example-app Keycloak client requires
+    // code_challenge_method=S256. The keycloak() helper forwards options.pkce
+    // verbatim, so a config that omits `pkce: true` silently disables PKCE and
+    // the live authz request is rejected with "Missing parameter:
+    // code_challenge_method". This assertion is what makes that a caught failure
+    // instead of a green-test-but-broken-deploy (the blind spot that shipped).
+    expect(url).toContain("code_challenge_method=S256");
+    expect(url).toContain("code_challenge=");
   });
 });

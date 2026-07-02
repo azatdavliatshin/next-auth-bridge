@@ -37,10 +37,15 @@ const sessionCookieName = getBetterAuthCookieName({ secure });
 
 // Same shared Keycloak realm/client as the Auth.js demo (D-06). The interactive and
 // silent entries share clientId/clientSecret/issuer; only providerId + prompt differ.
+// pkce: true is REQUIRED — the bridge-example-app Keycloak client mandates PKCE
+// (code_challenge_method=S256); the keycloak() helper forwards options.pkce
+// verbatim, so omitting it disables PKCE and Keycloak rejects the authz request
+// with "Missing parameter: code_challenge_method".
 const keycloakClient = {
   clientId: process.env.AUTH_KEYCLOAK_ID ?? "",
   clientSecret: process.env.AUTH_KEYCLOAK_SECRET ?? "",
   issuer: process.env.AUTH_KEYCLOAK_ISSUER ?? "",
+  pkce: true,
 };
 
 export const auth = betterAuth({
