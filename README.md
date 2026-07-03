@@ -1,12 +1,14 @@
 # next-auth-bridge
 
-**Cross-context auth for Next.js apps with Auth.js — popup bridge for enterprise iframe-SSO.**
+**Cross-context authentication bridge for Next.js apps — any cookie-session auth, demonstrated with Auth.js and Better Auth; a popup bridge for enterprise iframe-SSO.**
+
+> The "auth" in `next-auth-bridge` means *authentication*, not *Auth.js*. It is agnostic by design — the bridge plugs into any cookie-session auth library through one `verifySession` + `cookieName` seam, shown here with two: Auth.js and Better Auth.
 
 Sign a user in once on the host page. Reuse that session inside an `<iframe>` embedded in MS SharePoint, Teams Tab, Salesforce Lightning, ServiceNow, Confluence/Jira, or any enterprise portal with a shared identity-provider session. CHIPS-partitioned cookies make it work across modern browsers' 3rd-party-cookie restrictions, with a one-time-code bridge that never puts a session token in a URL.
 
 ```bash
 pnpm add next-auth-bridge
-# requires: next ≥ 14, next-auth (Auth.js) ≥ 5, a server-side KV store
+# requires: next ≥ 14, a cookie-session auth library (Auth.js or Better Auth demonstrated), a server-side KV store
 ```
 
 > **Status:** published — [`next-auth-bridge@0.2.0`](https://www.npmjs.com/package/next-auth-bridge) on npm (with SLSA provenance). Mode A (popup bridge) is complete; the API is stable within 0.x. See [Roadmap](#roadmap).
@@ -36,12 +38,14 @@ pnpm add next-auth-bridge
 
 Your Next.js app is embedded in a host application — MS SharePoint, Teams Tab, Salesforce Lightning, ServiceNow, Confluence/Jira, or a custom enterprise portal. The host already has the user signed in to the shared identity provider (typically Microsoft Entra). But Safari ITP, Chrome 3rd-party-cookie deprecation, and Firefox ETP block the iframe from seeing the host's cookies. From the user's perspective they're already signed in; from your iframe's perspective they're anonymous.
 
-The mainstream alternatives don't fit cleanly with Auth.js:
+The mainstream alternatives don't fit cleanly with a cookie-session Next.js auth setup:
 
 - **Bare iframe sign-in** forces the user through a redundant login flow they already completed at the host.
 - **Storage Access API** requires a permission prompt that breaks the silent-SSO UX.
 - **Pure CHIPS partitioned cookies without a bridge** don't inherit the host session — your iframe gets its own anonymous partition.
-- **Vendor SDKs** (Auth0, Okta, Clerk) lock you into their hosted identity, which Auth.js exists specifically to avoid.
+- **Vendor SDKs** (Auth0, Okta, Clerk) lock you into their hosted identity, which self-hosted auth (Auth.js, Better Auth) exists specifically to avoid.
+
+> **On the name.** `next-auth` was Auth.js's old npm package name, so `next-auth-bridge` reads to many as "an Auth.js-only tool." It isn't. The "auth" here is *authentication* — the bridge is library-agnostic by design, wiring into any cookie-session auth library through one `verifySession` + `cookieName` seam, and is demonstrated with Auth.js and Better Auth.
 
 This package solves the inheritance problem with a one-time-code bridge: a popup window auths in the top-level browser context (silently, against the host's existing identity-provider session), mints a 256-bit one-time code via the server-side transferStore, and posts it back to the iframe — which exchanges it for a CHIPS-partitioned session cookie of its own. No session token ever travels through a URL.
 
