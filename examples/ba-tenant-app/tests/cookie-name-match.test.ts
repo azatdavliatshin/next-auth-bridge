@@ -29,7 +29,11 @@ beforeAll(() => {
     "https://keycloak.example.test/realms/bridge-agnosticism";
   process.env.BETTER_AUTH_URL = "https://nab-ba-tenant.vercel.app";
   process.env.BETTER_AUTH_SECRET = "x".repeat(40);
-  process.env.BA_SQLITE_PATH = "ba.sqlite";
+  // Under NODE_ENV=production, lib/db.ts requires TURSO_DATABASE_URL (the deploy
+  // guard). Point at a placeholder libsql URL so the config resolves via the Turso
+  // branch — this suite only inspects the cookie name, never opens the DB.
+  process.env.TURSO_DATABASE_URL = "libsql://placeholder.turso.io";
+  process.env.TURSO_AUTH_TOKEN = "placeholder";
 });
 
 /** The cookie name Better Auth actually emits (base + its own secure prefix). */
