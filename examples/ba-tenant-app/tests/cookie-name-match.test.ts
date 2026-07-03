@@ -1,16 +1,16 @@
 // Pitfall-1 regression lock (T-08-01).
 //
 // The bridge harvests the cookie named `getBetterAuthCookieName({ secure })`. If the
-// name Better Auth is configured to EMIT diverges from that, the harvest finds
-// nothing and the handoff silently produces a signed-out tenant. Better Auth does NOT
-// auto-add the `__Secure-` prefix the way Auth.js does, so the name is set explicitly
-// in lib/auth.ts — and DERIVED from the helper, never a hardcoded literal (AGNOSTIC-05).
+// name Better Auth actually EMITS diverges from that, the harvest finds nothing and
+// the handoff silently produces a signed-out tenant.
 //
-// This test pins three things:
-//   1. The helper's own contract for BOTH bases (secure / non-secure).
-//   2. The name lib/auth.ts is configured to emit (read from auth.options) === the
-//      helper's output for the current `secure` value.
-//   3. The re-exported `sessionCookieName` agrees with the configured option.
+// CRITICAL (the bug this now guards): Better Auth ALWAYS prepends the secure prefix
+// itself when useSecureCookies is on (createCookieGetter: `${secureCookiePrefix}${name}`).
+// So `advanced.cookies.session_token.name` must be the BASE (unprefixed) name; the
+// EMITTED name is base + prefix. Asserting only the configured `name` (as an earlier
+// version did) let a doubled `__Secure-__Secure-...` cookie ship — the live failure.
+// This test therefore resolves the name Better Auth REALLY emits (via auth.$context)
+// and pins THAT to the helper, catching the double-prefix.
 //
 // `any` is permitted ONLY in this test scaffolding per CLAUDE.md.
 
@@ -19,18 +19,29 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { getBetterAuthCookieName } from "next-auth-bridge";
 
 beforeAll(() => {
+  // NODE_ENV=production so the secure branch (the deploy path, where the double
+  // prefix actually bit) is what's exercised. (Cast: @types/node marks NODE_ENV
+  // readonly; overriding it in a test is intentional.)
+  (process.env as Record<string, string>).NODE_ENV = "production";
   process.env.AUTH_KEYCLOAK_ID = "bridge-example-app";
   process.env.AUTH_KEYCLOAK_SECRET = "test-secret";
   process.env.AUTH_KEYCLOAK_ISSUER =
     "https://keycloak.example.test/realms/bridge-agnosticism";
-  process.env.BETTER_AUTH_URL = "http://localhost:3000";
+  process.env.BETTER_AUTH_URL = "https://nab-ba-tenant.vercel.app";
   process.env.BETTER_AUTH_SECRET = "x".repeat(40);
   process.env.BA_SQLITE_PATH = "ba.sqlite";
 });
 
+/** The cookie name Better Auth actually emits (base + its own secure prefix). */
+async function emittedSessionCookieName(): Promise<string> {
+  const mod = await import("@/lib/auth");
+  const ctx = await (mod.auth as any).$context;
+  const cookies = ctx?.authCookies ?? ctx?.cookies;
+  return cookies?.sessionToken?.name ?? cookies?.session_token?.name;
+}
+
 describe("emitted BA cookie name === getBetterAuthCookieName (Pitfall 1)", () => {
   it("the helper returns the prefixed name for secure and the bare name for non-secure", () => {
-    // Both bases are pinned so a change to either branch is caught here.
     expect(getBetterAuthCookieName({ secure: true })).toBe(
       "__Secure-better-auth.session_token",
     );
@@ -39,35 +50,19 @@ describe("emitted BA cookie name === getBetterAuthCookieName (Pitfall 1)", () =>
     );
   });
 
-  it("the configured advanced.cookies.session_token.name matches the helper for the current env", async () => {
-    const mod = await import("@/lib/auth");
-    const auth = mod.auth as any;
+  it("the name Better Auth EMITS equals the prefixed helper name (no double prefix)", async () => {
+    const emitted = await emittedSessionCookieName();
 
-    const configuredName: string =
-      auth?.options?.advanced?.cookies?.session_token?.name;
-    expect(typeof configuredName).toBe("string");
-
-    // Recompute the expected name exactly as lib/auth.ts does — from the helper,
-    // keyed on the same `secure` flag — so the configured value is proven to track
-    // the helper rather than a divergent hardcoded string.
-    const secure = process.env.NODE_ENV === "production";
-    const expectedName = getBetterAuthCookieName({ secure });
-
-    expect(configuredName).toBe(expectedName);
-
-    // The configured name must be one of the two helper bases (never some third
-    // hand-typed literal that happened to match in this env).
-    expect([
-      getBetterAuthCookieName({ secure: true }),
-      getBetterAuthCookieName({ secure: false }),
-    ]).toContain(configuredName);
+    // In the production/secure env, the emitted name must be EXACTLY the single-
+    // prefixed helper name — not `__Secure-__Secure-...`.
+    expect(emitted).toBe(getBetterAuthCookieName({ secure: true }));
+    expect(emitted).not.toContain("__Secure-__Secure-");
   });
 
-  it("the re-exported sessionCookieName agrees with the configured option", async () => {
+  it("the emitted name equals what the bridge harvests (sessionCookieName)", async () => {
+    const emitted = await emittedSessionCookieName();
     const mod = await import("@/lib/auth");
-    const auth = mod.auth as any;
-    const configuredName: string =
-      auth?.options?.advanced?.cookies?.session_token?.name;
-    expect(mod.sessionCookieName).toBe(configuredName);
+    // The re-exported sessionCookieName is what lib/auth-bridge.ts feeds the harvest.
+    expect(mod.sessionCookieName).toBe(emitted);
   });
 });

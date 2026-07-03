@@ -24,13 +24,17 @@ import { getBetterAuthCookieName } from "next-auth-bridge";
 
 import { database } from "@/lib/db";
 
-// In production the cookie carries the `__Secure-` prefix; Better Auth does NOT
-// add it automatically the way Auth.js does, so we force the exact name below.
 const secure = process.env.NODE_ENV === "production";
 
-// The session-cookie base name DERIVED from the Phase 7 helper, never a hardcoded
-// literal — the same lockstep discipline as the tenant app (AGNOSTIC-05 / Pitfall 1).
+// The FULL emitted cookie name (with the `__Secure-` prefix in prod), DERIVED from
+// the Phase 7 helper — the lockstep discipline as the tenant app (AGNOSTIC-05).
 const sessionCookieName = getBetterAuthCookieName({ secure });
+
+// The BASE name handed to Better Auth's cookie config. BA ALWAYS prepends the
+// secure prefix itself (createCookieGetter: `${secureCookiePrefix}${name}`), so we
+// must pass the UNprefixed base or the cookie double-prefixes to
+// `__Secure-__Secure-...` and the bridge harvest never matches (Pitfall 1).
+const sessionCookieConfigName = getBetterAuthCookieName({ secure: false });
 
 // Same shared Keycloak realm/client as the tenant app and the Auth.js demo (D-06).
 // pkce: true is REQUIRED — the bridge-example-app Keycloak client mandates PKCE
@@ -69,8 +73,9 @@ export const auth = betterAuth({
     useSecureCookies: secure,
     cookies: {
       session_token: {
-        // Derived above — never a hardcoded `__Secure-` literal (Pitfall 1).
-        name: sessionCookieName,
+        // BASE name — Better Auth adds the `__Secure-` prefix itself (Pitfall 1:
+        // passing the prefixed name here double-prefixes and breaks the harvest).
+        name: sessionCookieConfigName,
         attributes: {
           // CHIPS cross-site handoff requires SameSite=None; Secure; Partitioned.
           sameSite: "none",
