@@ -25,15 +25,21 @@ import { getBetterAuthCookieName } from "next-auth-bridge";
 import { AUTH_PROVIDER_ID_SILENT } from "@/lib/auth-provider";
 import { database } from "@/lib/db";
 
-// In production the cookie carries the `__Secure-` prefix; Better Auth does NOT
-// add it automatically the way Auth.js does, so we force the exact name below.
 const secure = process.env.NODE_ENV === "production";
 
-// The exact name the bridge will harvest. DERIVED from the Phase 7 helper, never a
-// hardcoded literal — this closes the dev/prod literal-mismatch trap (AGNOSTIC-05 /
-// Pitfall 1). Whatever `secure` is, the emitted cookie name and the harvested name
-// stay in lockstep.
+// The FULL emitted cookie name (with the `__Secure-` prefix in prod) that the bridge
+// harvests. DERIVED from the Phase 7 helper, never a hardcoded literal — this closes
+// the dev/prod literal-mismatch trap (AGNOSTIC-05 / Pitfall 1).
 const sessionCookieName = getBetterAuthCookieName({ secure });
+
+// The BASE name (no `__Secure-` prefix) we hand to Better Auth's cookie config.
+// CRITICAL: Better Auth ALWAYS prepends the secure prefix itself when
+// useSecureCookies is on (createCookieGetter: `${secureCookiePrefix}${name}`), so
+// passing the already-prefixed `sessionCookieName` here yields a DOUBLED
+// `__Secure-__Secure-...` cookie that the bridge harvest then never matches
+// (Pitfall 1, observed live). Give BA the base name; it adds the prefix, and the
+// emitted name equals `sessionCookieName` above.
+const sessionCookieConfigName = getBetterAuthCookieName({ secure: false });
 
 // Same shared Keycloak realm/client as the Auth.js demo (D-06). The interactive and
 // silent entries share clientId/clientSecret/issuer; only providerId + prompt differ.
@@ -87,8 +93,9 @@ export const auth = betterAuth({
     useSecureCookies: secure,
     cookies: {
       session_token: {
-        // Derived above — never a hardcoded `__Secure-` literal (Pitfall 1).
-        name: sessionCookieName,
+        // BASE name — Better Auth adds the `__Secure-` prefix itself (Pitfall 1:
+        // passing the prefixed name here double-prefixes and breaks the harvest).
+        name: sessionCookieConfigName,
         attributes: {
           // CHIPS cross-site handoff requires SameSite=None; Secure; Partitioned.
           sameSite: "none",
