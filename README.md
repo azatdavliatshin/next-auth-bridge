@@ -91,21 +91,28 @@ Edge bundle cannot include.
 
 ### 2. Wire the bridge from one shared config
 
+One config wires both routes. The shape is library-neutral — only two of the
+arguments (`verifySession` and `cookieName`) carry your auth library's specifics;
+everything else (`store`, `allowedOrigins`, `secure`) is identical across libraries.
+
 ```ts
 // lib/auth-bridge.ts
 import { createAuthBridge } from 'next-auth-bridge';
 import { createKVTransferStore } from 'next-auth-bridge/store/kv';
-import { auth } from '@/auth'; // your Auth.js instance
 
-// One config wires both routes. `createAuthBridge` returns { bridge, consume }.
+// `createAuthBridge` returns { bridge, consume }.
 export const { bridge, consume } = createAuthBridge({
   // Production transfer store (Upstash/Vercel KV via env). Use
   // createInMemoryTransferStore() from 'next-auth-bridge' in tests.
   store: createKVTransferStore(),
 
-  // The real security gate: the bridge mints a handle only after Auth.js
-  // confirms a genuine session.
-  verifySession: () => auth(),
+  // The real security gate: the bridge mints a handle only after your auth
+  // library confirms a genuine session. (Per-library delta below.)
+  verifySession: /* your auth library's session getter — see below */,
+
+  // The session-cookie base name to harvest/set. Omit for Auth.js (its default).
+  // (Per-library delta below.)
+  // cookieName: /* only if not Auth.js's default */,
 
   // The cross-site Origin allowlist for both routes. The embedding host and your
   // app are distinct sites (the whole point of the CHIPS handoff) — list both.
@@ -114,6 +121,32 @@ export const { bridge, consume } = createAuthBridge({
   // HTTPS deployment → the __Secure- session-cookie name.
   secure: true,
 });
+```
+
+The only per-library difference is at the `verifySession` / `cookieName` seam. Plug in
+one of the two demonstrated libraries (full copy-paste wiring lives in the linked example apps):
+
+**Auth.js**
+
+```ts
+import { auth } from '@/auth'; // your Auth.js instance
+
+// verifySession: Auth.js confirms a genuine session.
+// cookieName: omitted — Auth.js is the default (__Secure-authjs.session-token).
+verifySession: () => auth(),
+```
+
+**Better Auth**
+
+```ts
+import { headers } from 'next/headers';
+import { getBetterAuthCookieName } from 'next-auth-bridge';
+import { auth } from '@/lib/auth';
+
+// verifySession: Better Auth's analog of () => auth().
+verifySession: async () => auth.api.getSession({ headers: await headers() }),
+// cookieName: DERIVED from the flag via the helper — never a hardcoded __Secure- literal.
+cookieName: getBetterAuthCookieName({ secure: true }),
 ```
 
 ### 3. Wire up the route handlers
@@ -142,6 +175,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Edge-safe, UX-only signal — presence of the session cookie, not a verification.
+// Use your auth library's session-cookie base name:
+//   Auth.js      → '__Secure-authjs.session-token'
+//   Better Auth  → '__Secure-better-auth.session_token'
 const SESSION_COOKIE = '__Secure-authjs.session-token';
 
 const route = createBridgeMiddleware({
@@ -234,16 +270,29 @@ for the host page that embeds it.
 The library itself reads **no** environment variables. Everything `createAuthBridge`
 needs — the transfer store, `verifySession`, the origin allowlist, the `secure` flag — is
 passed in as configuration, so you can source those values however your app prefers. The
-variables below are what a real deployment ends up needing: a few come from Auth.js, one
-pair is read by the default KV store adapter, and the rest are the origins you choose to
-feed into the config.
+variables below are what a real deployment ends up needing: a few come from your auth
+library (Auth.js or Better Auth), one pair is read by the default KV store adapter, and
+the rest are the origins you choose to feed into the config.
 
 ### Required
+
+These come from your auth library — grouped by the two demonstrated libraries.
+
+**Auth.js**
 
 | Variable | Read by | Purpose |
 | --- | --- | --- |
 | `AUTH_SECRET` | Auth.js (peer dependency) | Session/JWT encryption secret. Generate with `npx auth secret`. |
 | _Your identity-provider credentials_ | Auth.js provider | Whatever your chosen Auth.js OAuth provider requires — e.g. `AUTH_MICROSOFT_ENTRA_ID_ID` / `_SECRET` / `_ISSUER` for Microsoft Entra, or `AUTH_KEYCLOAK_ID` / `_SECRET` / `_ISSUER` for Keycloak. |
+
+**Better Auth**
+
+| Variable | Read by | Purpose |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | Better Auth | Session/token signing secret. Generate with `openssl rand -base64 32`. |
+| `BETTER_AUTH_URL` | Better Auth | The app's base URL (used for callbacks). |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Better Auth (session/user DB) | Hosted libSQL (Turso) connection for Better Auth's session and user tables. |
+| `AUTH_KEYCLOAK_ID` / `_SECRET` / `_ISSUER` | Better Auth genericOAuth | The SAME shared-Keycloak social-provider credentials as the Auth.js set (the shared-IdP demo — see [How it works](#how-it-works)). |
 
 ### Transfer store (default KV adapter)
 
@@ -281,8 +330,13 @@ embedded-iframe scenario, including the Entra/Keycloak provider switch
 
 ## How it works
 
+The diagram below traces the **warm handoff** — the host already holds an active session,
+so the popup completes silently. This warm path is the library-agnostic core: it works for
+any cookie-session auth library. (Labels use "your auth library" / "your IdP"; the bracketed
+notes show Microsoft Entra as one worked example.)
+
 ```
-[host page with active Microsoft Entra session]
+[host page with an active session to your IdP — e.g. Microsoft Entra]
         │
         │  loads <iframe src="https://your-app.example/...">
         ▼
@@ -298,16 +352,17 @@ embedded-iframe scenario, including the Entra/Keycloak provider switch
         ▼
 [popup window — top-level browser context]
         │
-        │  Auth.js signIn('microsoft-entra-id')
-        │  OAuth redirect to login.microsoftonline.com
+        │  your auth library's signIn() → OAuth redirect to your IdP
+        │  (e.g. Auth.js signIn('microsoft-entra-id') → login.microsoftonline.com)
         │
-        │  ⚡ Microsoft Entra sees the host's existing session cookies
+        │  ⚡ your IdP sees the host's existing session cookies
         │     (top-level browser context — not iframe)
         │     Returns authorization code WITHOUT user prompt
         ▼
-[OAuth callback at /api/auth/callback/microsoft-entra-id]
+[OAuth callback at your auth library's callback route]
+        │  (e.g. /api/auth/callback/microsoft-entra-id)
         │
-        │  Auth.js exchanges code for session, sets session cookie
+        │  your auth library exchanges code for session, sets session cookie
         │  redirects to /auth/popup
         ▼
 [/auth/popup page]
@@ -316,7 +371,7 @@ embedded-iframe scenario, including the Entra/Keycloak provider switch
         ▼
 [/auth/bridge?popup=true (server)]
         │
-        │  reads Auth.js session cookie from request
+        │  reads your auth library's session cookie from request
         │  generates 256-bit handle, stores {cookie-name, cookie-value, next} in transferStore
         │  returns JSON { code }
         ▼
@@ -344,6 +399,8 @@ embedded-iframe scenario, including the Entra/Keycloak provider switch
 ```
 
 **User-visible UX:** the popup window appears for under a second and closes. No login prompt if the host SSO is active. To the user, the iframe simply "becomes signed in".
+
+**Cold-start (no tenant session yet):** a `prompt=none` silent re-auth can complete the handoff with no interactive login page — but only when the tenant and host share an identity provider. This is a *demonstrated* capability, shown with a shared Keycloak in the [Better Auth live validation](./examples/ba-tenant-app/docs/live-validation.md), not something automatic for every library. The warm handoff above is the agnostic core; cold-start silent re-auth depends on the shared-IdP setup.
 
 **Why it works:** the consume response sets `Partitioned` on the cookie, which is what makes it readable inside the cross-context iframe under modern browsers' [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) policy. See [Compatibility matrix](#compatibility-matrix) for browser support.
 
