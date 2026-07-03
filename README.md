@@ -413,8 +413,8 @@ The transferStore code is 256-bit hex from `crypto.randomBytes(32)`, single-use,
 | Surface | Supported |
 |---|---|
 | **Next.js** | 14, 15 (App Router; Pages Router planned) |
-| **Auth.js (next-auth)** | v5 ≥ 5.0.0. v4 (legacy NextAuth) not supported; planned if there is demand. |
-| **OAuth providers** | Any Auth.js provider that supports authorization-code OAuth: Microsoft Entra, Google, Apple, GitHub, Okta, Auth0-as-IdP. Magic-link / password / WebAuthn-only providers planned for v0.3+. |
+| **Auth library** | Auth.js v5 ≥ 5.0.0 and Better Auth — both demonstrated with live two-origin demos. Auth.js v4 (legacy NextAuth) not supported; planned if there is demand. Any cookie-session library wires in through the `verifySession` + `cookieName` seam. |
+| **OAuth providers** | Any provider your auth library supports for authorization-code OAuth: Microsoft Entra, Google, Apple, GitHub, Okta, Auth0-as-IdP, Keycloak. Magic-link / password / WebAuthn-only providers planned for v0.3+. |
 | **Browser (iframe)** | CHIPS partitioned cookies: Chrome 114+, Edge 114+, Firefox 130+, Safari 18+. Older Safari supported but cookie persistence may degrade to single session. |
 | **TransferStore adapters** | Upstash Redis (production, via `@upstash/redis` — works with Vercel KV / Upstash REST env vars), in-memory (tests). Custom adapters via the `TransferStore` interface. |
 | **Host applications (iframe)** | Any host page that hosts an iframe and supports `window.open` + `postMessage`. Tested against generic parent pages in CI. Real-host integration (SharePoint web part config, Teams Tab manifest, Salesforce Canvas) is host-side tooling and out of bridge scope. |
@@ -429,8 +429,8 @@ The transferStore code is 256-bit hex from `crypto.randomBytes(32)`, single-use,
 | **Storage Access API (`document.requestStorageAccess()`)** | You can accept a permission prompt | UX prompt is unacceptable. Also, it has uneven cross-browser support. |
 | **Pure CHIPS partitioned cookies (no popup bridge)** | Your iframe can do its own independent auth from scratch | You want to inherit the host's existing identity-provider session silently |
 | **Microsoft Teams Tab SDK with `notifySuccess`** | Your iframe is ONLY in Teams Tab and you're OK with the SDK lock-in | You want one auth flow that works in SharePoint, Salesforce, ServiceNow, etc. — not just Teams |
-| **Vendor SDK (Auth0 SDK, Okta SDK, Clerk SDK)** | You're using that vendor's hosted identity (not Auth.js) | You're on Auth.js. This package is the Auth.js-shaped equivalent. |
-| **`expo-auth-session`** | You're using Expo Router | You're on Next.js. This package is Next.js / Auth.js-specific. |
+| **Vendor SDK (Auth0 SDK, Okta SDK, Clerk SDK)** | You're using that vendor's hosted identity | You're using self-hosted cookie-session auth (Auth.js, Better Auth). This package is the cross-context bridge for it. |
+| **`expo-auth-session`** | You're using Expo Router | You're on Next.js. This package is Next.js-specific (any cookie-session auth). |
 
 ---
 
@@ -441,10 +441,10 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 - **Code entropy.** 256-bit (32-byte) CSPRNG output from `crypto.randomBytes(32).toString('hex')`. Stored in `transferStore`, exposed only as an opaque URL parameter for at most one round-trip.
 - **TTL + one-time use.** Default 60 s. Deleted on first read. Replay attacks bounded.
 - **PKCE.** OAuth flows preserve `code_verifier`/`code_challenge` across the bridge handoff. Without PKCE, an attacker intercepting the OAuth code in transit could exchange it.
-- **No session token in URL.** Only the opaque handle travels through URLs. The actual Auth.js session cookie is set by the server response, never visible to JavaScript or URL logs.
+- **No session token in URL.** Only the opaque handle travels through URLs. The actual session cookie is set by the server response, never visible to JavaScript or URL logs.
 - **CSRF on `/auth/consume`.** Codes are one-time-use; second call returns 4xx. Origin checked when handle arrives via `postMessage`.
 - **`sanitizeRedirects`.** `next` parameter rejected if starts with `/auth`, `/api/auth`, or `/auth/consume`. Prevents auth-loop and open-redirect attacks.
-- **Wrapper / iframe detection is UX routing, not security.** A forged context-detection signal in a normal browser must not exfiltrate a session. `/auth/bridge` independently checks for an actual Auth.js session before minting a handle.
+- **Wrapper / iframe detection is UX routing, not security.** A forged context-detection signal in a normal browser must not exfiltrate a session. `/auth/bridge` independently checks for an actual session before minting a handle.
 - **`postMessage` origin checks.** Both popup and opener verify `event.origin === window.location.origin`. Mismatches are dropped silently.
 - **Partitioned cookie.** Cookie is set with `Partitioned` attribute → CHIPS-compliant. Cross-context iframe can read its own partition; other iframes on the same domain under different partition keys cannot.
 
@@ -464,6 +464,7 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 
 - Popup-bridge transport (Mode A) for Next.js apps embedded in enterprise iframes
 - Auth.js v5 integration, App Router (Next.js 14 / 15)
+- Auth-library-agnostic proof: Auth.js **and** Better Auth wired through the same `verifySession` + `cookieName` seam, each with its own live two-origin demo
 - TransferStore: Upstash Redis adapter (production, via `@upstash/redis`) + in-memory adapter (tests), pluggable via the `TransferStore` interface
 - Provider-agnostic proof: Microsoft Entra in the reference deployment + generic OIDC (Keycloak) in CI and the public demo
 - Multi-tenant reference example (`tenant-app` + `host-shell`) deployed across two real Vercel origins; public Keycloak [live demo](#live-demo)
@@ -487,12 +488,12 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 - Password providers (same)
 - WebAuthn-only providers (server-side credential mint)
 - Capacitor / Cordova wrappers (different JS bridge mechanism)
-- Other Next.js auth libraries (Clerk, Auth0-via-Next.js-package)
+- Further Next.js auth libraries beyond the two demonstrated (Auth.js, Better Auth) — e.g. Clerk, Auth0-via-Next.js-package
 
 ### Out of scope (not on roadmap)
 
 - Generic "auth library for all native wrappers" — see [`expo-auth-session`](https://docs.expo.dev/versions/latest/sdk/auth-session/) if that's what you need.
-- Replacement for Auth.js. This package wraps and complements Auth.js; it does not redo OAuth.
+- Replacement for your auth library. This package complements your cookie-session auth (Auth.js, Better Auth); it does not redo OAuth or replace your auth library.
 
 ---
 
@@ -518,4 +519,4 @@ MIT. See [LICENSE](./LICENSE).
 
 Thanks to [Kirill Evtushenko](https://www.linkedin.com/in/kirill-evtushenko/) ([GitHub](https://github.com/KirillEvtushenko)) for co-developing the popup-bridge pattern this package generalizes.
 
-Built on top of [Auth.js](https://authjs.dev/) (which it complements, not replaces). Cross-context cookie handling follows the [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) specification. The planned Mode B will implement [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) using Apple's [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession) API.
+Works alongside your Next.js auth library ([Auth.js](https://authjs.dev/), Better Auth) — it complements your cookie-session auth, it doesn't replace it. Cross-context cookie handling follows the [CHIPS](https://developer.mozilla.org/en-US/docs/Web/Privacy/Privacy_sandbox/Partitioned_cookies) specification. The planned Mode B will implement [RFC 8252 — OAuth 2.0 for Native Apps](https://datatracker.ietf.org/doc/html/rfc8252) using Apple's [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession) API.
