@@ -91,7 +91,13 @@ untouched); host shells no test files (passWithNoTests). Both `ba-*` apps
 
 **Recorded — cross-site sign-in result (2026-07-03):**
 Host sign-in (Keycloak user `bridge-test-ba-user@example.test`) established the SSO
-session: **yes** — host holds a `__Secure-better-auth.session_token` (single-prefixed;
+session: **yes**
+> Note: this run used a manually-created distinct Keycloak user
+> (`bridge-test-ba-user@example.test`) to avoid the `account_not_linked` collision with
+> the then-shared credential seed email. With the seed default now on a separate email
+> (`bridge-ba-credential@example.test`, section 6), the realm's stock
+> `bridge-test-user@example.test` Keycloak user no longer collides and can be used
+> directly. — host holds a `__Secure-better-auth.session_token` (single-prefixed;
 `HttpOnly; Secure; SameSite=None`; Partition Key = `nab-ba-host`).
 Tenant (`/t/acme`, embedded cross-site in the host shell) signed in: **yes** — started
 signed-out ("Sign In" button, empty tenant cookie); clicking Sign In opened a top-level
@@ -147,12 +153,22 @@ bar met. (Unit evidence: `cold-start-prompt.test.ts` asserts `prompt=none` +
 
 ## 6. Seeded LIVE-URL login (BAEXAMPLE-04)
 
-The deterministic seeded test user (`bridge-test-user@example.test`, created via
+The deterministic seeded test user (`bridge-ba-credential@example.test`, created via
 `auth.api.signUpEmail` in `scripts/seed.ts`) must log in on the LIVE Turso-backed tenant
 URL — proving the credential write/read path against hosted libSQL, not just local
 SQLite.
 
-**Recorded — seeded login result (2026-07-03):**
+> **Credential email is deliberately distinct from the Keycloak realm user.** The seed
+> uses `bridge-ba-credential@example.test`, NOT the Keycloak realm user's
+> `bridge-test-user@example.test`. Better Auth does not auto-link accounts across
+> providers by default (safe-by-default), so a shared email would make the first
+> Keycloak sign-in fail with `?error=account_not_linked`. Keeping the credential and
+> OAuth identities on separate emails keeps the demo working out of the box. (The
+> 2026-07-03 evidence below was recorded before this default was fixed: it used
+> `bridge-test-user@example.test` for the credential login and a manually-distinct
+> `bridge-test-ba-user@example.test` Keycloak user to sidestep the same collision.)
+
+**Recorded — seeded login result (2026-07-03; pre-fix email):**
 Seeded user present in Turso: **yes** — independently queried the deployed Turso DB:
 tables `account, session, user, verification` present; exactly one `user`
 (`bridge-test-user@example.test`, id `S9GKsxYvJJG0dHw7xb3zmDbkawpcWY4k`) with one
@@ -183,7 +199,7 @@ Turso-backed URL — is met; a follow-up may add a visible credential form.
 | Session cookie name single-prefixed (`__Secure-better-auth.session_token`, no double prefix) | **yes** — fixed in `b22d02f` |
 | Session cookie is `Partitioned` and isolated to the host partition (DevTools) | **yes** — `Partitioned` + `SameSite=None` + `Secure; HttpOnly`, Partition Key = `nab-ba-host` |
 | Cold-start silent re-auth via `prompt=none` (no interactive login page — D-07 parity) | **yes** — no Keycloak login page observed on the silent path |
-| Seeded test user logs in on the LIVE Turso-backed URL (BAEXAMPLE-04) | **yes** — live `/api/auth/sign-in/email` → HTTP 200 + session; user verified present in Turso |
+| Seeded test user logs in on the LIVE Turso-backed URL (BAEXAMPLE-04) | **yes** — live `/api/auth/sign-in/email` → HTTP 200 + session; user verified present in Turso (evidence used the pre-fix email `bridge-test-user@example.test`; committed default is now the distinct `bridge-ba-credential@example.test` — see §6) |
 | "Better Auth" banner on host + tenant (BAEXAMPLE-05); distinct `nab-ba-*` URLs (BAEXAMPLE-06) | **yes** — banner renders on both; reachable under `nab-ba-host` / `nab-ba-tenant` |
 | Date observed / observer | 2026-07-03 — recorded during Phase 8 live validation |
 

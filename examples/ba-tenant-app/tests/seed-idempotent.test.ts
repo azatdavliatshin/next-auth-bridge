@@ -34,7 +34,10 @@ const SCHEMA_PATH = fileURLToPath(
 );
 
 const CREDS = {
-  email: "bridge-test-user@example.test",
+  // Credential-only email — deliberately distinct from the Keycloak realm user's
+  // email (bridge-test-user@example.test) so the two identities never collide (Better
+  // Auth does not auto-link across providers by default; see scripts/seed.ts).
+  email: "bridge-ba-credential@example.test",
   password: "seed-pass-seed-pass",
   name: "Bridge Test User",
 };
