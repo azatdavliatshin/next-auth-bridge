@@ -13,7 +13,12 @@
 
 import { auth } from "../lib/auth";
 
-const EMAIL = process.env.SEED_EMAIL ?? "bridge-test-user@example.test";
+// CREDENTIAL-ONLY email: it MUST differ from the Keycloak realm user's email
+// (bridge-test-user@example.test in examples/tenant-app/keycloak/realm-export.json).
+// Better Auth does not auto-link across providers by default, so sharing one email
+// with the OAuth identity would make the first Keycloak sign-in fail with
+// ?error=account_not_linked. Distinct emails keep the demo working out of the box.
+const EMAIL = process.env.SEED_EMAIL ?? "bridge-ba-credential@example.test";
 const PASSWORD = process.env.SEED_PASSWORD;
 const NAME = "Bridge Test User";
 
