@@ -11,6 +11,22 @@
 import { LibsqlDialect } from "@libsql/kysely-libsql";
 import Database from "better-sqlite3";
 
+// Fail-fast guard: on Vercel (or any prod deploy) TURSO_DATABASE_URL MUST be set.
+// Without it the ternary below silently falls back to the better-sqlite3 file
+// branch, whose native binary gets pulled into `next build` page-data collection
+// and whose file cannot persist on Vercel's ephemeral FS (the failure that forced
+// build fix 3e59d8d). Throwing here turns a silent misconfiguration into a loud one.
+if (
+  !process.env.TURSO_DATABASE_URL &&
+  (process.env.VERCEL || process.env.NODE_ENV === "production")
+) {
+  throw new Error(
+    "TURSO_DATABASE_URL is required on deploy (Vercel/production): the local " +
+      "better-sqlite3 file DB cannot persist on an ephemeral serverless FS. Set " +
+      "TURSO_DATABASE_URL (+ TURSO_AUTH_TOKEN) in the project environment.",
+  );
+}
+
 /**
  * The resolved Better Auth `database` option.
  *
