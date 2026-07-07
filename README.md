@@ -68,6 +68,7 @@ second login prompt.
 **Better Auth demo**
 
 - **Start here:** **[nab-ba-host.vercel.app](https://nab-ba-host.vercel.app/)** — the Better Auth host. The embedded tenant app lives at [nab-ba-tenant.vercel.app/t/acme](https://nab-ba-tenant.vercel.app/t/acme).
+- **Test credentials:** `bridge-test-ba-user` / `bridge-test-ba-password` (a distinct Keycloak user from the Auth.js demo above — the Auth.js credentials do **not** work here).
 - **The flow, as recorded:** sign in on the host against the shared Keycloak, then trigger sign-in inside the embedded tenant — the popup opens top-level, silently reuses the host's Keycloak session, and the iframe renders signed-in with no interactive Keycloak login page. This is the Keycloak popup-bridge (seeded sign-in) flow, not an email/password credential form (the tenant top-level currently surfaces only the Keycloak button).
 - **Recorded evidence:** [`examples/ba-tenant-app/docs/live-validation.md`](./examples/ba-tenant-app/docs/live-validation.md) (warm handoff, CHIPS isolation, cold-start `prompt=none` parity, seeded Turso login, 2026-07-03).
 
