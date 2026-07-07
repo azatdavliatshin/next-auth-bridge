@@ -275,3 +275,5 @@ the full loop — host shell, embedded tenant app, popup, and cold-start — wir
 real deployment, and read the
 [threat model](https://github.com/azatdavliatshin/next-auth-bridge/blob/main/docs/threat-model.md)
 before adapting the pattern to your own identity provider.
+
+The reference implementation used here, [`next-auth-bridge`](https://github.com/azatdavliatshin/next-auth-bridge), is auth-library-agnostic — the same `verifySession` + `cookieName` seam wires any cookie-session Next.js auth library, not only Auth.js.
