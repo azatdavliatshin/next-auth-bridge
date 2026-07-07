@@ -53,24 +53,35 @@ This package solves the inheritance problem with a one-time-code bridge: a popup
 
 ## Live demo
 
-Try the popup-bridge end-to-end without a Microsoft account — sign in with a
-seeded test user against a self-hosted Keycloak.
+The agnostic claim is backed by **two** live demos on distinct Vercel origins (so
+the CHIPS cross-site handoff is real), each against the same self-hosted Keycloak —
+one wired with **Auth.js**, one with **Better Auth**. In both, you sign in on the
+host and watch the embedded iframe sign itself in via the popup bridge with no
+second login prompt.
 
-**Demo URL:** **[nab-host.vercel.app](https://nab-host.vercel.app/)** — start here (the enterprise host). The embedded tenant app lives at [nab-tenant.vercel.app/t/demo](https://nab-tenant.vercel.app/t/demo).
+**Auth.js demo**
 
-**Test credentials:** `bridge-test-user` / `bridge-test-password`
+- **Start here:** **[nab-host.vercel.app](https://nab-host.vercel.app/)** — the enterprise host. The embedded tenant app lives at [nab-tenant.vercel.app/t/demo](https://nab-tenant.vercel.app/t/demo).
+- **Test credentials:** `bridge-test-user` / `bridge-test-password`.
+- **Recorded evidence:** [`examples/tenant-app/docs/live-validation.md`](./examples/tenant-app/docs/live-validation.md) (warm handoff + CHIPS partition isolation, 2026-06-12).
 
-**The flow, in one line:** sign in on the host → the embedded app appears → the
-iframe signs itself in via the popup bridge (no second login prompt).
+**Better Auth demo**
 
-> ⚠️ **Demo only.** These credentials are public on purpose and the instance is
+- **Start here:** **[nab-ba-host.vercel.app](https://nab-ba-host.vercel.app/)** — the Better Auth host. The embedded tenant app lives at [nab-ba-tenant.vercel.app/t/acme](https://nab-ba-tenant.vercel.app/t/acme).
+- **The flow, as recorded:** sign in on the host against the shared Keycloak, then trigger sign-in inside the embedded tenant — the popup opens top-level, silently reuses the host's Keycloak session, and the iframe renders signed-in with no interactive Keycloak login page. This is the Keycloak popup-bridge (seeded sign-in) flow, not an email/password credential form (the tenant top-level currently surfaces only the Keycloak button).
+- **Recorded evidence:** [`examples/ba-tenant-app/docs/live-validation.md`](./examples/ba-tenant-app/docs/live-validation.md) (warm handoff, CHIPS isolation, cold-start `prompt=none` parity, seeded Turso login, 2026-07-03).
+
+**The flow, in one line (both demos):** sign in on the host → the embedded app
+appears → the iframe signs itself in via the popup bridge (no second login prompt).
+
+> ⚠️ **Demo only.** These credentials are public on purpose and both instances are
 > throwaway. Not production — never reuse this realm, client, or user.
 
-The demo runs both example apps on two distinct Vercel origins (so the CHIPS
-cross-site handoff is real) against a hosted Keycloak. The default reference
-deployment uses Microsoft Entra; the public demo flips one env var
-(`NEXT_PUBLIC_AUTH_PROVIDER=keycloak`) to swap in Keycloak so anyone can sign in.
-Hosting instructions: [examples/keycloak-demo/DEPLOY.md](./examples/keycloak-demo/DEPLOY.md).
+Both demos run their two example apps on two distinct Vercel origins against a
+hosted Keycloak. The default Auth.js reference deployment uses Microsoft Entra; the
+public demo flips one env var (`NEXT_PUBLIC_AUTH_PROVIDER=keycloak`) to swap in
+Keycloak so anyone can sign in. Hosting instructions:
+[examples/keycloak-demo/DEPLOY.md](./examples/keycloak-demo/DEPLOY.md).
 
 ---
 
@@ -258,10 +269,11 @@ export async function signInViaBridge(): Promise<void> {
 }
 ```
 
-That's the minimal integration. See [`examples/tenant-app`](./examples/tenant-app) for the
-complete embedded app showing the popup-bridge flow end-to-end against a real Microsoft
-Entra app registration deployed to Vercel preview, and [`examples/host-shell`](./examples/host-shell)
-for the host page that embeds it.
+That's the minimal integration. Two full copy-paste example sets show the same flow
+wired for each demonstrated library:
+
+- **Auth.js:** [`examples/tenant-app`](./examples/tenant-app) — the complete embedded app showing the popup-bridge flow end-to-end against a real Microsoft Entra app registration deployed to Vercel preview — and [`examples/host-shell`](./examples/host-shell), the host page that embeds it.
+- **Better Auth:** [`examples/ba-tenant-app`](./examples/ba-tenant-app) — the same embedded app wired with Better Auth (Turso-backed session, shared-Keycloak social provider) — and [`examples/ba-host-shell`](./examples/ba-host-shell), its host page. The only files that differ from the Auth.js set are the two `lib/auth-bridge.ts` wirings at the `verifySession` + `cookieName` seam.
 
 ---
 
@@ -322,9 +334,10 @@ example apps follow:
 
 The example apps ship a fully annotated `.env.example` enumerating every variable for the
 embedded-iframe scenario, including the Entra/Keycloak provider switch
-(`NEXT_PUBLIC_AUTH_PROVIDER`): see
-[`examples/tenant-app/.env.example`](./examples/tenant-app/.env.example) and
-[`examples/host-shell/.env.example`](./examples/host-shell/.env.example).
+(`NEXT_PUBLIC_AUTH_PROVIDER`) for the Auth.js set. See both example sets:
+
+- **Auth.js:** [`examples/tenant-app/.env.example`](./examples/tenant-app/.env.example) and [`examples/host-shell/.env.example`](./examples/host-shell/.env.example).
+- **Better Auth:** [`examples/ba-tenant-app/.env.example`](./examples/ba-tenant-app/.env.example) and [`examples/ba-host-shell/.env.example`](./examples/ba-host-shell/.env.example).
 
 ---
 
@@ -452,8 +465,22 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 
 ## Examples
 
-- [`examples/tenant-app`](./examples/tenant-app) — **Recommended starting point.** The embedded Next.js app demonstrating the popup-bridge flow end-to-end against a real Microsoft Entra app registration, deployed to a Vercel preview. Multi-tenant pattern with per-tenant configuration.
+Two parallel example sets — one per demonstrated auth library — back the agnostic
+claim with two live demos. Each set is the same bridge wiring; only the two
+`lib/auth-bridge.ts` files differ at the `verifySession` + `cookieName` seam.
+
+**Auth.js set**
+
+- [`examples/tenant-app`](./examples/tenant-app) — **Recommended starting point.** The embedded Next.js app demonstrating the popup-bridge flow end-to-end against a real Microsoft Entra app registration, deployed to a Vercel preview. Multi-tenant pattern with per-tenant configuration. Recorded live evidence: [`docs/live-validation.md`](./examples/tenant-app/docs/live-validation.md).
 - [`examples/host-shell`](./examples/host-shell) — the host page that embeds the tenant app in a cross-site iframe, so the CHIPS handoff can be exercised across two real origins.
+
+**Better Auth set**
+
+- [`examples/ba-tenant-app`](./examples/ba-tenant-app) — the embedded Better Auth app, wired through the same bridge with a Turso-backed session and the shared-Keycloak social provider; live-demoed on its own `nab-ba-*` origins. Recorded live evidence: [`docs/live-validation.md`](./examples/ba-tenant-app/docs/live-validation.md) (warm handoff, CHIPS isolation, cold-start `prompt=none` parity, seeded Turso login).
+- [`examples/ba-host-shell`](./examples/ba-host-shell) — the Better Auth host page that embeds `ba-tenant-app` across two real Vercel origins.
+
+**Shared demo runbook**
+
 - [`examples/keycloak-demo`](./examples/keycloak-demo) — the hosting runbook ([DEPLOY.md](./examples/keycloak-demo/DEPLOY.md)) behind the public [live demo](#live-demo): both apps on two Vercel origins against a self-hosted Keycloak.
 
 ---
