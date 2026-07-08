@@ -1,3 +1,24 @@
+# [0.3.0](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.2.0...v0.3.0) (2026-07-08)
+
+
+### Bug Fixes
+
+* **08-01:** make cold-start honesty-gate test hermetic ([2de5545](https://github.com/azatdavliatshin/next-auth-bridge/commit/2de5545304b957b5578719a30a7d911427a3537f))
+* **08:** build workspace core before next build on Vercel + document host Turso db ([e71143e](https://github.com/azatdavliatshin/next-auth-bridge/commit/e71143e8088d6ffb93a2304b691beb2c3d351688))
+* **08:** enable PKCE on the BA Keycloak provider (code_challenge_method=S256) ([b122266](https://github.com/azatdavliatshin/next-auth-bridge/commit/b122266ad033daed5955cead886fa9bf65de69f3))
+* **08:** fail fast when TURSO_DATABASE_URL is missing on deploy ([047ab60](https://github.com/azatdavliatshin/next-auth-bridge/commit/047ab606e45e43e9c07a2e59872f88c86449f778))
+* **08:** give the BA credential seed a distinct email from the Keycloak realm user ([f88a462](https://github.com/azatdavliatshin/next-auth-bridge/commit/f88a462a43ae532e8ef6eb4079fd341381883a91))
+* **08:** stop double-prefixing the BA session cookie (__Secure-__Secure-) ([eef0f80](https://github.com/azatdavliatshin/next-auth-bridge/commit/eef0f80b8539e08412af8b47c498b744677b177a))
+
+
+### Features
+
+* **07-02:** add env-derived getBetterAuthCookieName helper ([fe0a0c8](https://github.com/azatdavliatshin/next-auth-bridge/commit/fe0a0c8e488dc0fdba2c00675d0bc2ad1bee1b02))
+* **08-01:** scaffold ba-tenant-app Better Auth config + DB env-flip + schema ([8815216](https://github.com/azatdavliatshin/next-auth-bridge/commit/881521629739d100567e3a9d193fca7fbb5eb630))
+* **08-02:** build ba-host-shell BA app + Better Auth banners on host & tenant ([36e2cf3](https://github.com/azatdavliatshin/next-auth-bridge/commit/36e2cf382d34bade9b4e87897502f1389b0ae729))
+* **08-02:** copy ba-tenant-app bridge core verbatim + finalize 4 BA delta files ([0250f86](https://github.com/azatdavliatshin/next-auth-bridge/commit/0250f86a0bc1c637cbb48c3770cbb0befdbc2a49))
+* **08-03:** allowlist nab-ba-* origins + BA oauth2 callback in realm export ([1c811cf](https://github.com/azatdavliatshin/next-auth-bridge/commit/1c811cfc551d4f7913a1c344a982b4c985c27476))
+
 # [0.2.0](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.1.0...v0.2.0) (2026-06-14)
 
 
