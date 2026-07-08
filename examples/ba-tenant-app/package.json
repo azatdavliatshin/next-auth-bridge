@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm --filter next-auth-bridge build && next build",
+    "build": "next build",
     "test": "vitest run --passWithNoTests",
     "db:generate": "better-auth generate --output better-auth-schema.sql",
     "seed": "tsx scripts/seed.ts"
