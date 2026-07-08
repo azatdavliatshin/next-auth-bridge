@@ -17,7 +17,7 @@
     "better-sqlite3": "12.11.1",
     "@libsql/kysely-libsql": "0.4.1",
     "@libsql/client": "0.17.4",
-    "next-auth-bridge": "workspace:*"
+    "next-auth-bridge": "^0.3.0"
   },
   "devDependencies": {
     "typescript": "^5",
