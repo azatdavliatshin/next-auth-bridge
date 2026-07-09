@@ -11,7 +11,7 @@ pnpm add next-auth-bridge
 # requires: next ≥ 14, a cookie-session auth library (Auth.js or Better Auth demonstrated), a server-side KV store
 ```
 
-> **Status:** published — [`next-auth-bridge@0.2.0`](https://www.npmjs.com/package/next-auth-bridge) on npm (with SLSA provenance). Mode A (popup bridge) is complete; the API is stable within 0.x. See [Roadmap](#roadmap).
+> **Status:** published — [`next-auth-bridge@0.3.0`](https://www.npmjs.com/package/next-auth-bridge) on npm (with SLSA provenance). Mode A (popup bridge) is complete and auth-library-agnostic — demonstrated live with both Auth.js and Better Auth; the API is stable within 0.x. See [Roadmap](#roadmap).
 >
 > **Looking ahead:** A future major adds Mode B — PWABuilder-wrapped iOS apps (`ASWebAuthenticationSession` for native passkey support). The transferStore architecture is designed so Mode B lands as an additive change — no breaking changes for current consumers. See [Roadmap](#roadmap) for details.
 
@@ -488,7 +488,7 @@ claim with two live demos. Each set is the same bridge wiring; only the two
 
 ## Roadmap
 
-### Shipped (v0.1.0 → v0.2.0)
+### Shipped (v0.1.0 → v0.3.0)
 
 - Popup-bridge transport (Mode A) for Next.js apps embedded in enterprise iframes
 - Auth.js v5 integration, App Router (Next.js 14 / 15)
