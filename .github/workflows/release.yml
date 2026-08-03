@@ -81,15 +81,14 @@ jobs:
           # plugin still works; the @semantic-release/git push would then be
           # rejected by the ruleset — see docs/release-governance.md section 2).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # Primary npm auth is OIDC Trusted Publishing: a trusted publisher is
+          # npm auth is OIDC Trusted Publishing ONLY: a trusted publisher is
           # configured on npmjs.com for this repo + release.yml, and npm (>= 11.5.1
           # via the upgrade step above) exchanges the workflow's OIDC id-token
           # (permissions.id-token: write) for a short-lived publish credential.
           # OIDC also auto-generates the Sigstore provenance attestation.
           #
-          # NPM_TOKEN is a TEMPORARY fallback retained while OIDC is being proven
-          # in CI: @semantic-release/npm reads it directly and falls back to it if
-          # the OIDC exchange is unavailable. Remove this line (and delete the
-          # secret) once a release has published cleanly via OIDC. See
-          # docs/release-governance.md section 1, Phase B.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The temporary NPM_TOKEN fallback was removed 2026-08-03 after two
+          # releases (v0.2.0, v0.3.0) published cleanly via OIDC — the registry
+          # records both with the GitHub Actions trusted-publisher identity
+          # (_npmUser: "GitHub Actions" + trustedPublisher in the version metadata).
+          # See docs/release-governance.md section 1, Phase B.
