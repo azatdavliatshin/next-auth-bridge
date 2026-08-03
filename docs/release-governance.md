@@ -83,9 +83,10 @@ authenticates via OIDC. Steps, for the record:
    gh secret delete NPM_TOKEN --repo azatdavliatshin/next-auth-bridge
    ```
 
-   (v0.2.0 published via OIDC on 2026-06-14 — provenance attestation confirms the OIDC
-   path was used. The `NPM_TOKEN` fallback was retained in `release.yml` but not needed;
-   it can be removed and the secret deleted.)
+   (v0.2.0 published via OIDC on 2026-06-14 and v0.3.0 on 2026-07-08 — the registry's
+   version metadata records both with the GitHub Actions trusted-publisher identity.
+   **Done 2026-08-03:** the `NPM_TOKEN` fallback was removed from `release.yml`; delete
+   the repo secret with the command above.)
 
 4. For maximum hardening, on npm set the package's **Publishing access -> "Require
    two-factor authentication and disallow tokens"** so only Trusted Publishing (and
