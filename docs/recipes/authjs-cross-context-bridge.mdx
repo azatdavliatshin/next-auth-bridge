@@ -55,6 +55,44 @@ token-smuggling hack:
 The pattern is provider-agnostic: it works with any Auth.js OAuth provider that uses the
 authorization-code flow — Microsoft Entra, Google, Okta, Auth0-as-IdP, Keycloak, and others.
 
+## Restrict who may embed your app
+
+This pattern removes a protection you previously had by accident, so replace it deliberately.
+Before the bridge, a cross-site iframe of your app was inert: its session cookie was blocked as
+a third-party cookie, so an embedder got an unauthenticated page. With the bridge, **any site
+allowed to frame your app can obtain an authenticated instance of it** — one click, no prompt,
+and that click is easy to supply with an overlay. Name the hosts permitted to embed you:
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next";
+
+const HOST_SHELL_ORIGIN = process.env.HOST_SHELL_ORIGIN ?? "https://your-host.example";
+
+// 'self' covers the same-origin popup window; the one trusted host-shell origin covers the
+// legitimate embed. A wildcard would invite clickjacking from any site; frame-ancestors 'none'
+// (or X-Frame-Options: DENY) would block the host and defeat the pattern.
+const nextConfig: NextConfig = {
+  headers: async () => [
+    {
+      source: "/:path*",
+      headers: [
+        {
+          key: "Content-Security-Policy",
+          value: `frame-ancestors 'self' ${HOST_SHELL_ORIGIN}`,
+        },
+      ],
+    },
+  ],
+};
+
+export default nextConfig;
+```
+
+`allowedOrigins` below does **not** cover this: it gates the `postMessage` exchange and the
+handle mint, not who is allowed to put your app in a frame. These are two different questions,
+and the framing policy is the one your deployment has to answer.
+
 ## Installation
 
 ```bash
