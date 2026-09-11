@@ -30,6 +30,17 @@ import {
 import type { AuthBridgeOptions } from "next-auth-bridge";
 
 const ORIGIN = "https://tenant.example";
+
+// The opener redeems by a same-origin fetch from inside the iframe; these are
+// the Fetch Metadata headers a browser attaches to exactly that request. Since
+// next-auth-bridge@0.3.1 the consume route refuses anything else (THREAT-12 —
+// a navigation with a valid handle is the login-CSRF vector).
+const CONSUME_FETCH_HEADERS = {
+  Origin: ORIGIN,
+  "Sec-Fetch-Site": "same-origin",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Dest": "empty",
+};
 const BRIDGE_URL = `${ORIGIN}/auth/bridge?popup=true`;
 
 // DERIVED, never hardcoded — the dev/prod literal-mismatch trap AGNOSTIC-05 closed.
@@ -95,7 +106,7 @@ describe("bridge -> consume roundtrip against a Better Auth single-opaque-cookie
     // Partitioned session cookie.
     const consumeUrl = `${ORIGIN}/auth/consume?code=${encodeURIComponent(code)}&next=${encodeURIComponent("/")}`;
     const consumeRes = await api.consume(
-      new Request(consumeUrl, { headers: { Origin: ORIGIN } }),
+      new Request(consumeUrl, { headers: CONSUME_FETCH_HEADERS }),
     );
     expect(consumeRes.status).toBe(302);
     const cookies = consumeRes.headers.getSetCookie();
@@ -143,14 +154,14 @@ describe("bridge -> consume roundtrip against a Better Auth single-opaque-cookie
 
     // First redeem succeeds (302 + the single cookie).
     const first = await api.consume(
-      new Request(consumeUrl, { headers: { Origin: ORIGIN } }),
+      new Request(consumeUrl, { headers: CONSUME_FETCH_HEADERS }),
     );
     expect(first.status).toBe(302);
     expect(first.headers.getSetCookie().length).toBe(tokenChunks.length);
 
     // Second redeem of the same handle: deleted on first read -> 4xx, no cookie.
     const replay = await api.consume(
-      new Request(consumeUrl, { headers: { Origin: ORIGIN } }),
+      new Request(consumeUrl, { headers: CONSUME_FETCH_HEADERS }),
     );
     expect(replay.status).toBeGreaterThanOrEqual(400);
     expect(replay.headers.getSetCookie().length).toBe(0);

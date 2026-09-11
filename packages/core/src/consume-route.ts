@@ -32,11 +32,23 @@
 // the source lifetime is not capturable from the request, D-03); an explicit
 // options.maxAge is threaded through to every emitted Set-Cookie.
 //
-// D-12 / D-14 (Origin allowlist, defense-in-depth): a PRESENT but disallowed
-// Origin → 4xx (store NOT reached); an ABSENT Origin passes through to the real
-// gate (the popup's 302-driven navigation to /auth/consume legitimately carries
-// no Origin — D-14). Complementary control, NOT the security boundary (the
-// boundary is the one-time opaque handle).
+// THREAT-12 (login CSRF — redeeming a handle in someone else's browser): the
+// handle is a bearer secret, so an attacker who mints a handle for THEIR OWN
+// session and gets a victim's browser to navigate to /auth/consume?code=... would
+// log the victim in as the attacker. The route therefore accepts redemption only
+// from a same-origin fetch, using Fetch Metadata (browser-set, unforgeable by
+// page script): a request carrying `Sec-Fetch-Dest` other than `empty` (a
+// navigation, an <img>, an <iframe>) or `Sec-Fetch-Site` other than
+// `same-origin` (a cross-site request) → 4xx, store NOT reached, no oracle.
+// Absent Fetch Metadata (a client that does not send it) falls through to the
+// Origin gate below — every supported browser sends it, so the boundary is the
+// supported-browser matrix, not the route.
+//
+// D-12 (Origin allowlist, defense-in-depth): a PRESENT but disallowed Origin →
+// 4xx (store NOT reached); an ABSENT Origin passes through (a same-origin GET
+// fetch carries no Origin header). Complementary control, NOT the security
+// boundary (the boundary is the one-time opaque handle + the same-origin-fetch
+// gate above).
 //
 // D-06: the returned handler is a plain Web-standard
 // `(request) => Promise<Response>` closure — no Next.js runtime coupling, driven
@@ -57,6 +69,25 @@ import { serializeSetCookie } from "./cookie-codec.js";
  */
 function reject(): Response {
   return new Response(null, { status: 400 });
+}
+
+/**
+ * THREAT-12 — is this request a fetch issued by the app's own document?
+ *
+ * Reads Fetch Metadata (`Sec-Fetch-Dest` / `Sec-Fetch-Site`), which browsers
+ * attach to every request and page script cannot set or strip. Returns false
+ * for a navigation (`Sec-Fetch-Dest: document`), any other subresource dest
+ * (`image`, `iframe`, ...), or any non-same-origin site (`cross-site`,
+ * `same-site`, `none`). A request that carries NO Fetch Metadata returns true:
+ * that is a client outside the supported-browser matrix, and the route's
+ * boundary is that matrix — see the header comment.
+ */
+function isSameOriginFetch(request: Request): boolean {
+  const dest = request.headers.get("Sec-Fetch-Dest");
+  if (dest !== null && dest !== "empty") return false;
+  const site = request.headers.get("Sec-Fetch-Site");
+  if (site !== null && site !== "same-origin") return false;
+  return true;
 }
 
 /**
@@ -91,21 +122,33 @@ function writeChunkCookies(
  * Build the `/auth/consume` request handler from one config (ROUTE-03 / D-10).
  *
  * The returned closure runs in this exact, commented order:
- *   1. Origin check (D-12/D-14)  — present-but-disallowed → 4xx; absent → pass
- *   2. AM-1 guard                — absent/empty `code` → 4xx, store NOT reached
- *   3. Exchange (THREAT-06)      — store.consume(code); null → 4xx no-cookie
- *   4. Resolve target (D-09)     — sanitizeNext(next), unsafe degrades to "/"
- *   5. Write cookies (D-13/D-17) — one partitioned Set-Cookie per chunk
- *   6. Respond (D-08)            — 302 to the sanitized Location
+ *   1. Fetch Metadata gate (THREAT-12) — a navigation, subresource, or
+ *                                  cross-site request → 4xx, store NOT reached
+ *   2. Origin check (D-12)       — present-but-disallowed → 4xx; absent → pass
+ *   3. AM-1 guard                — absent/empty `code` → 4xx, store NOT reached
+ *   4. Exchange (THREAT-06)      — store.consume(code); null → 4xx no-cookie
+ *   5. Resolve target (D-09)     — sanitizeNext(next), unsafe degrades to "/"
+ *   6. Write cookies (D-13/D-17) — one partitioned Set-Cookie per chunk
+ *   7. Respond (D-08)            — 302 to the sanitized Location
  */
 export function createConsumeHandler(
   options: AuthBridgeOptions,
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
-    // 1. Origin check (D-12/D-14) — defense-in-depth, NOT the security boundary
-    // (the boundary is the one-time opaque handle). A PRESENT Origin not in the
-    // allowlist is rejected (4xx); an ABSENT Origin passes through to the real
-    // gate — the popup's 302-driven navigation legitimately carries no Origin.
+    // 1. Fetch Metadata gate (THREAT-12) — only a same-origin fetch may redeem.
+    // `Sec-Fetch-Dest: document` is a top-level navigation (the login-CSRF
+    // vector: a link to /auth/consume?code=<attacker's own handle>); `image`,
+    // `iframe` etc. are subresources; `Sec-Fetch-Site` other than `same-origin`
+    // is a request the app's own document did not make. All → 4xx before the
+    // store, same no-cookie rejection as a forged handle (no oracle). Absent
+    // metadata falls through — see the header comment for the boundary.
+    if (!isSameOriginFetch(request)) {
+      return reject();
+    }
+
+    // 2. Origin check (D-12) — defense-in-depth, NOT the security boundary. A
+    // PRESENT Origin not in the allowlist is rejected (4xx); an ABSENT Origin
+    // passes through — a same-origin GET fetch carries no Origin header.
     const origin = request.headers.get("Origin");
     if (origin !== null && !options.allowedOrigins.includes(origin)) {
       return reject();
@@ -115,7 +158,7 @@ export function createConsumeHandler(
     const code = params.get("code");
     const next = params.get("next");
 
-    // 2. AM-1 guard — an absent or empty `code` takes the SAME 4xx no-cookie
+    // 3. AM-1 guard — an absent or empty `code` takes the SAME 4xx no-cookie
     // path as a forged handle, and store.consume is NEVER called with a
     // null/empty argument. This guard runs BEFORE the store call, so no
     // malformed input reaches the store (no oracle, no crash).
@@ -123,7 +166,7 @@ export function createConsumeHandler(
       return reject();
     }
 
-    // 3. Exchange (THREAT-06) — the atomic, delete-first, null-on-miss store
+    // 4. Exchange (THREAT-06) — the atomic, delete-first, null-on-miss store
     // gate (Phase 1 D-03/D-09). Forged / expired / already-consumed all collapse
     // to null → one 4xx no-cookie rejection with no distinguishing signal. A
     // thrown store error is operational (Phase 1 D-13) and propagates as a 5xx —
@@ -133,18 +176,18 @@ export function createConsumeHandler(
       return reject();
     }
 
-    // 4. Resolve the redirect target (D-09) — sanitizeNext degrades an unsafe
+    // 5. Resolve the redirect target (D-09) — sanitizeNext degrades an unsafe
     // `next` (the /auth namespace, absolute, or protocol-relative) to "/"; the
     // attacker target is never honored (ROUTE-06 / THREAT-08).
     const location = sanitizeNext(next);
 
-    // 5. Write the partitioned cookies (D-13 / D-17) — one Set-Cookie per stored
+    // 6. Write the partitioned cookies (D-13 / D-17) — one Set-Cookie per stored
     // chunk via the factored writer, each carrying the hardened CHIPS floors and
     // the optional Max-Age.
     const headers = new Headers();
     writeChunkCookies(headers, payload, { maxAge: options.maxAge });
 
-    // 6. Respond (D-08) — 302 to the sanitized Location with the cookies set.
+    // 7. Respond (D-08) — 302 to the sanitized Location with the cookies set.
     // There is NO `mode` parameter and NO PWA branch (D-13 — popup-only for
     // v0.1).
     headers.set("Location", location);
