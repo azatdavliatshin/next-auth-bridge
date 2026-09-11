@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.3.0...v0.3.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **consume:** refuse handle redemption that is not a same-origin fetch ([8ed5aa4](https://github.com/azatdavliatshin/next-auth-bridge/commit/8ed5aa428d85cc434e0ded23e4d9287d2be9c757))
+
 # [0.3.0](https://github.com/azatdavliatshin/next-auth-bridge/compare/v0.2.0...v0.3.0) (2026-07-08)
 
 
