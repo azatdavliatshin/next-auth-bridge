@@ -32,7 +32,7 @@ enumerated here; its invariants will be added when Mode B gains deterministic te
 |----------|-------------|------------|
 | popup → opener (`postMessage`) | The handle crosses window contexts; the receiver must validate the sender. | THREAT-03 |
 | client → `/auth/bridge` | The bridge must mint a handle only for a genuinely authenticated session, never on a forged context signal. | THREAT-04, THREAT-05, THREAT-09 |
-| client → `/auth/consume` | The handle is a one-time bearer; replay/forgery must fail closed; success sets the partitioned cookie. | THREAT-06 |
+| client → `/auth/consume` | The handle is a one-time bearer; replay/forgery must fail closed; success sets the partitioned cookie. Only a same-origin fetch may redeem — a navigation carrying a *valid* handle is the login-CSRF vector. | THREAT-06, THREAT-12 |
 | every client-constructed URL | The session token must never appear in any URL (only the opaque handle may). | THREAT-07, THREAT-09, THREAT-10 |
 
 ## Invariant registry
@@ -55,6 +55,7 @@ test file lives under `packages/core/src/` (e.g. `__tests__/` or `transfer-store
 | **THREAT-08** | `sanitizeNext` rejects unsafe redirect targets (`/auth*`, `/api/auth*`, absolute URLs, protocol-relative `//`, backslash `/\`) and falls back to `/`. | `auth-helpers.ts` `sanitizeNext`. | `auth-helpers.test.ts :: "rejects /auth and /auth/* targets → /"`, `auth-helpers.test.ts :: "rejects an absolute URL → / (attacker host never honored)"`, `auth-helpers.test.ts :: "rejects a protocol-relative //evil target → / (attacker host never honored)"`, `auth-helpers.test.ts :: "rejects a backslash protocol-relative /\\evil target → / (CR-01 bypass)"` |
 | **THREAT-09** | No session token / JWT-shaped string in the bridge response body; the handle is never placed in a URL. | `bridge-route.ts:102-105` — the body is `{ code }` only (opaque handle), zero cookies. | `bridge-route.test.ts :: "returns 200 { code } with an opaque handle, no token in body, and zero cookies"` |
 | **THREAT-10** | No-token-in-URL holds at the ROUNDTRIP level — across the full composed flow, not just per-component. | The roundtrip URL-hygiene sweep over every client-constructed URL (same hardened test as THREAT-01). | `roundtrip.e2e.test.ts :: "drives the real bridge -> (simulated postMessage) -> consume to a 302 with per-chunk Partitioned Set-Cookie, and keeps the session token out of every client-constructed URL (D-15)"` |
+| **THREAT-12** | Login CSRF via handle redemption: a *valid* handle — one an attacker minted for **their own** session — must not be redeemable in another user's browser. Only a same-origin fetch may redeem; a top-level navigation, a subresource load, or a cross-site / same-site fetch → 4xx with no `Set-Cookie`, the store is not reached (the handle survives for the legitimate opener), and the rejection is byte-identical to a forged-handle rejection (no oracle). | `consume-route.ts` `isSameOriginFetch` — Fetch Metadata gate (`Sec-Fetch-Dest` must be `empty`, `Sec-Fetch-Site` must be `same-origin`) runs first, before the Origin check and the store. Browsers set these headers; page script cannot set or strip them. | `consume-route.test.ts :: "THREAT-12: rejects a top-level navigation with a VALID handle (4xx, no cookie, store not reached); the handle then still redeems via fetch"`, `consume-route.test.ts :: "THREAT-12: rejects a SAME-ORIGIN navigation too (Sec-Fetch-Dest: document is never a redemption)"`, `consume-route.test.ts :: "THREAT-12: rejects a cross-site fetch with a VALID handle (4xx, no cookie, store not reached)"`, `consume-route.test.ts :: "THREAT-12: rejects a subresource load (<img>) with a VALID handle (4xx, no cookie, store not reached)"`, `consume-route.test.ts :: "THREAT-12: rejects same-site-but-not-same-origin (a sibling subdomain's fetch)"`, `consume-route.test.ts :: "THREAT-12: a navigation rejection is indistinguishable from a forged-handle rejection (no oracle)"`; positive: `consume-route.test.ts :: "THREAT-12: accepts a same-origin fetch carrying a valid handle (302 + partitioned cookies)"` |
 
 > **THREAT-01 / THREAT-10 dual-cite:** both rows intentionally cite the **same** hardened roundtrip
 > `it(...)` name. THREAT-01 asserts the end-to-end flow succeeds; THREAT-10 asserts the URL-hygiene
@@ -82,7 +83,24 @@ to the navigated top-level/partitioned document the way a navigation's does). It
 Phase 5: fetch is the resolved default** — the live two-origin run confirmed a credentialed fetch from
 inside the embedded frame commits the partitioned cookie under the correct top-level partition. See
 [examples/tenant-app/docs/live-validation.md](../examples/tenant-app/docs/live-validation.md) §5
-(consume-transport observation). Phase 3's "prefer fetch" guidance therefore stands as the confirmed
-default. This document does **not** assert that "consume must be a navigation" or that "a fetch is a
-violation"; the live evidence resolves the transport choice in favor of fetch without changing any
-THREAT-NN invariant.
+(consume-transport observation).
+
+As of 0.3.1 fetch is no longer merely the default — it is **required** (THREAT-12). A top-level
+navigation to `/auth/consume` is refused because it is the login-CSRF vector: an attacker redeems a
+handle minted for *their own* session in a victim's browser by linking the victim to the consume URL.
+The route reads Fetch Metadata and accepts only `Sec-Fetch-Site: same-origin` + `Sec-Fetch-Dest: empty`.
+
+## Honesty boundary — THREAT-12 Fetch Metadata
+
+The gate relies on the browser attaching `Sec-Fetch-*` headers, which page script cannot set or
+strip. A request carrying **no** Fetch Metadata falls through to the Origin check rather than being
+refused — every browser in the supported matrix (Chrome/Edge 114+, Firefox 130+, Safari 18+) sends
+it, so this fall-through cannot be triggered from a supported browser; it exists so that non-browser
+clients and the Node bench are not broken. The boundary is therefore the supported-browser matrix,
+and it is covered by
+`consume-route.test.ts :: "THREAT-12 boundary: a request carrying no Fetch Metadata falls through to the Origin gate"`.
+A future major may flip this to fail-closed.
+
+THREAT-12 closes redemption *by* the wrong browser; it does not bind a handle to the specific window
+that opened the popup. Binding the handle to its redeemer (a PKCE-style verifier held by the opener)
+would close the same class structurally and is the planned follow-up.

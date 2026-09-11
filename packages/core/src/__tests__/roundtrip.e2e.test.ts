@@ -165,8 +165,11 @@ describe("end-to-end roundtrip (success criterion 5 / D-11) + THREAT-07 URL hygi
     // Kept as a single, direct `api.consume(makeRequest(consumeUrl ...))`
     // invocation (transport-agnostic, D-09): NOT routed through runPopupFlow or
     // a fake fetch.
+    // The real client redeems via a same-origin fetch from inside the iframe;
+    // the request carries the Fetch Metadata a browser attaches to exactly that
+    // (THREAT-12 gate — a navigation would be refused).
     // prettier-ignore
-    const consumeRes = await api.consume(makeRequest(consumeUrl, { headers: { Origin: ORIGIN } }));
+    const consumeRes = await api.consume(makeRequest(consumeUrl, { headers: { Origin: ORIGIN, "Sec-Fetch-Site": "same-origin", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" } }));
     expect(consumeRes.status).toBe(302);
     expect(consumeRes.headers.get("Location")).toBe(next);
 

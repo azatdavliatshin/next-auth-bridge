@@ -456,7 +456,7 @@ Short version. Full discussion in [docs/threat-model.md](./docs/threat-model.md)
 - **TTL + one-time use.** Default 60 s. Deleted on first read. Replay attacks bounded.
 - **PKCE.** OAuth flows preserve `code_verifier`/`code_challenge` across the bridge handoff. Without PKCE, an attacker intercepting the OAuth code in transit could exchange it.
 - **No session token in URL.** Only the opaque handle travels through URLs. The actual session cookie is set by the server response, never visible to JavaScript or URL logs.
-- **CSRF on `/auth/consume`.** Codes are one-time-use; second call returns 4xx. Origin checked when handle arrives via `postMessage`.
+- **CSRF on `/auth/consume`.** Codes are one-time-use; second call returns 4xx. Origin checked when handle arrives via `postMessage`. Since 0.3.1 the route accepts only a same-origin `fetch` (Fetch Metadata: `Sec-Fetch-Site: same-origin`, `Sec-Fetch-Dest: empty`) — a navigation or cross-site request carrying a *valid* handle is refused before the store, which closes login CSRF (an attacker redeeming their own handle in your browser). Redeem with `fetch`, never `window.location`.
 - **`sanitizeRedirects`.** `next` parameter rejected if starts with `/auth`, `/api/auth`, or `/auth/consume`. Prevents auth-loop and open-redirect attacks.
 - **Wrapper / iframe detection is UX routing, not security.** A forged context-detection signal in a normal browser must not exfiltrate a session. `/auth/bridge` independently checks for an actual session before minting a handle.
 - **`postMessage` origin checks.** Both popup and opener verify `event.origin === window.location.origin`. Mismatches are dropped silently.

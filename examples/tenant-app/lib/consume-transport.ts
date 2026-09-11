@@ -15,10 +15,11 @@
 // the TOP-LEVEL site regardless of who issues the request, so a fetch issued from
 // the embedded frame writes the cookie under the correct partition.
 //
-// A top-level navigation to the same URL (`window.location.assign`) is a possible
-// alternative transport, but it is NOT used: fetch is the resolved path. The
-// helper is kept below only as a reference for anyone needing a navigation-based
-// variant in a different host; the bridge demo does not wire it.
+// A top-level navigation to the same URL is NOT a valid transport: since
+// next-auth-bridge@0.3.1 the consume route refuses anything that is not a
+// same-origin fetch (THREAT-12). A navigation carrying a valid handle is exactly
+// the login-CSRF vector — an attacker's own handle redeemed in a victim's
+// browser — so the route reads Fetch Metadata and rejects it before the store.
 
 /**
  * Build the /auth/consume URL carrying the opaque one-time handle and the
@@ -47,14 +48,4 @@ export async function redeemHandle(code: string, next = "/"): Promise<void> {
   // Set-Cookie is honored; `redirect: "follow"` because /auth/consume answers
   // with a 302 to `next`.
   await fetch(url, { credentials: "include", redirect: "follow" });
-}
-
-/**
- * Reference: a top-level navigation to /auth/consume. NOT the transport the demo
- * uses (fetch is resolved). Provided for a host that needs a navigation-based
- * exchange; the opaque one-time `code` riding in this URL is safe — only the
- * handle, never the session token.
- */
-export function navigateToConsume(url: string): void {
-  window.location.assign(url);
 }

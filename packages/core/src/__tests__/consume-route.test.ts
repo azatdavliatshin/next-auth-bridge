@@ -19,6 +19,11 @@
 //     Max-Age=600.
 //   T-02-12 (D-12/D-14 — Origin allowlist): present-but-disallowed Origin → 4xx
 //     (store NOT reached); absent Origin → proceeds.
+//   THREAT-12 (login CSRF — same-origin-fetch gate): a VALID handle arriving as a
+//     navigation, a subresource, or a cross-site/same-site fetch → 4xx, [],
+//     store NOT reached (handle survives for the legitimate opener); the
+//     rejection is byte-identical to a forged-handle rejection (no oracle);
+//     absent Fetch Metadata falls through (documented boundary).
 //   ROUTE-05 / D-10 (factory wiring): createAuthBridge(options) returns exactly
 //     { bridge, consume }; an end-to-end bridge -> consume on the bench
 //     round-trips the chunks; the helpers are NOT on the factory return (D-11).
@@ -289,6 +294,189 @@ describe("createConsumeHandler — the /auth/consume handle exchange", () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.getSetCookie()).toHaveLength(PAYLOAD.length);
+  });
+});
+
+/**
+ * THREAT-12 — login CSRF via handle redemption in another browser.
+ *
+ * The handle is a bearer secret. An attacker who mints a handle for THEIR OWN
+ * session can, within the TTL, get a victim's browser to hit
+ * /auth/consume?code=<attacker handle> — as a top-level navigation (a link, a
+ * redirect), an <img>, or a cross-site fetch. Without a gate, consume would
+ * set the ATTACKER's session cookies in the VICTIM's browser. The gate reads
+ * Fetch Metadata (browser-set, not settable by page script): only a same-origin
+ * fetch (`Sec-Fetch-Site: same-origin`, `Sec-Fetch-Dest: empty`) may redeem.
+ * Every rejection is the same 4xx / no-cookie / store-not-reached path as a
+ * forged handle, so the gate adds no oracle — and the handle stays valid for
+ * the legitimate opener afterwards.
+ */
+describe("THREAT-12 — only a same-origin fetch may redeem a handle", () => {
+  const SAME_ORIGIN_FETCH = {
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+  };
+
+  it("THREAT-12: accepts a same-origin fetch carrying a valid handle (302 + partitioned cookies)", async () => {
+    const store = makeTestStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const res = await handler(
+      makeRequest(`${URL}?code=${code}`, { headers: SAME_ORIGIN_FETCH }),
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.getSetCookie()).toHaveLength(PAYLOAD.length);
+  });
+
+  it("THREAT-12: rejects a top-level navigation with a VALID handle (4xx, no cookie, store not reached); the handle then still redeems via fetch", async () => {
+    const store = makeRecordingStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    // A victim clicking a link to /auth/consume?code=<attacker's own handle>.
+    // Browsers send this exact metadata on a cross-site link navigation.
+    const navigation = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: {
+          "Sec-Fetch-Site": "cross-site",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-User": "?1",
+        },
+      }),
+    );
+    expect(navigation.status).toBeGreaterThanOrEqual(400);
+    expect(navigation.status).toBeLessThan(500);
+    expect(navigation.headers.getSetCookie()).toEqual([]);
+    expect(store.consumeCalls).toBe(0); // gate runs before the store — no burn, no oracle
+
+    // The legitimate opener can still redeem the same handle afterwards.
+    const fetchRes = await handler(
+      makeRequest(`${URL}?code=${code}`, { headers: SAME_ORIGIN_FETCH }),
+    );
+    expect(fetchRes.status).toBe(302);
+    expect(fetchRes.headers.getSetCookie()).toHaveLength(PAYLOAD.length);
+  });
+
+  it("THREAT-12: rejects a SAME-ORIGIN navigation too (Sec-Fetch-Dest: document is never a redemption)", async () => {
+    const store = makeRecordingStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const res = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: {
+          "Sec-Fetch-Site": "same-origin",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Dest": "document",
+        },
+      }),
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.headers.getSetCookie()).toEqual([]);
+    expect(store.consumeCalls).toBe(0);
+  });
+
+  it("THREAT-12: rejects a cross-site fetch with a VALID handle (4xx, no cookie, store not reached)", async () => {
+    const store = makeRecordingStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    // fetch(url, { mode: "no-cors", credentials: "include" }) from evil.test.
+    const res = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: {
+          "Sec-Fetch-Site": "cross-site",
+          "Sec-Fetch-Mode": "no-cors",
+          "Sec-Fetch-Dest": "empty",
+        },
+      }),
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.headers.getSetCookie()).toEqual([]);
+    expect(store.consumeCalls).toBe(0);
+  });
+
+  it("THREAT-12: rejects a subresource load (<img>) with a VALID handle (4xx, no cookie, store not reached)", async () => {
+    const store = makeRecordingStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const res = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: {
+          "Sec-Fetch-Site": "cross-site",
+          "Sec-Fetch-Mode": "no-cors",
+          "Sec-Fetch-Dest": "image",
+        },
+      }),
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.headers.getSetCookie()).toEqual([]);
+    expect(store.consumeCalls).toBe(0);
+  });
+
+  it("THREAT-12: rejects same-site-but-not-same-origin (a sibling subdomain's fetch)", async () => {
+    const store = makeRecordingStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const res = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: {
+          "Sec-Fetch-Site": "same-site",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Dest": "empty",
+        },
+      }),
+    );
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.headers.getSetCookie()).toEqual([]);
+    expect(store.consumeCalls).toBe(0);
+  });
+
+  it("THREAT-12: a navigation rejection is indistinguishable from a forged-handle rejection (no oracle)", async () => {
+    const store = makeTestStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const navigation = await handler(
+      makeRequest(`${URL}?code=${code}`, {
+        headers: { "Sec-Fetch-Site": "none", "Sec-Fetch-Dest": "document" },
+      }),
+    );
+    const forged = await handler(
+      makeRequest(`${URL}?code=deadbeef-never-created`, {
+        headers: SAME_ORIGIN_FETCH,
+      }),
+    );
+
+    expect(navigation.status).toBe(forged.status);
+    expect(await navigation.text()).toBe(await forged.text());
+    expect(navigation.headers.getSetCookie()).toEqual(
+      forged.headers.getSetCookie(),
+    );
+  });
+
+  // Honesty boundary: a request with NO Fetch Metadata is not a browser in the
+  // supported matrix (Chrome 114+, Firefox 130+, Safari 18+ all send it). It
+  // falls through to the Origin gate — this is the documented boundary of the
+  // THREAT-12 control, not a bypass a page script can trigger.
+  it("THREAT-12 boundary: a request carrying no Fetch Metadata falls through to the Origin gate", async () => {
+    const store = makeTestStore();
+    const code = await seed(store);
+    const handler = makeHandler({ store });
+
+    const res = await handler(makeRequest(`${URL}?code=${code}`)); // no Sec-Fetch-*, no Origin
+
+    expect(res.status).toBe(302);
   });
 });
 
