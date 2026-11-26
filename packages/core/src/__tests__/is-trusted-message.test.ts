@@ -12,7 +12,7 @@
 // The predicate is pure: zero DOM, zero globals. Tests build a plain
 // MessageEventLike ({ origin, source, data }) and never touch jsdom/window.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, it, expect } from "vitest";
 import { isTrustedMessage } from "../is-trusted-message.js";

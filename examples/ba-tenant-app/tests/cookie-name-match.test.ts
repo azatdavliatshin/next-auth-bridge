@@ -12,7 +12,7 @@
 // This test therefore resolves the name Better Auth REALLY emits (via auth.$context)
 // and pins THAT to the helper, catching the double-prefix.
 //
-// `any` is permitted ONLY in this test scaffolding per CLAUDE.md.
+// `any` is permitted ONLY in this test scaffolding per CONTRIBUTING.md.
 
 import { beforeAll, describe, expect, it } from "vitest";
 

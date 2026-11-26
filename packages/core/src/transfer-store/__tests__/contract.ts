@@ -14,7 +14,7 @@
 // This module is a reusable suite function, NOT a standalone test file — it has
 // no adapter to construct yet, so it is invoked by Plans 02/03, not run here.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, expect, it } from "vitest";
 

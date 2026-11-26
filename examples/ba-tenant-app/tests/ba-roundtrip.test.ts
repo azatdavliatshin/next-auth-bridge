@@ -17,7 +17,7 @@
 //     session (no live Keycloak / no DB), so it is a deterministic regression lock,
 //     not an env-guarded case.
 //
-// `any` is permitted ONLY in this test scaffolding per CLAUDE.md (none is needed
+// `any` is permitted ONLY in this test scaffolding per CONTRIBUTING.md (none is needed
 // here, but the convention applies).
 
 import { describe, expect, it } from "vitest";

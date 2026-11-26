@@ -9,7 +9,7 @@
 // Expiry is driven by an injected clock (D-14) — no setTimeout, no real waits,
 // no vi.useFakeTimers. Concurrency is structural, not timing-based (Pitfall 1).
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, expect, it } from "vitest";
 

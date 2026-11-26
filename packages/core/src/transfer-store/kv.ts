@@ -66,7 +66,7 @@ export interface KVTransferStoreOptions extends TransferStoreOptions {
 /**
  * Create the "Vercel KV" TransferStore adapter on @upstash/redis (STORE-03).
  *
- * Functional/factory style (no classes — see CLAUDE.md): the resolved Redis
+ * Functional/factory style (no classes — see CONTRIBUTING.md): the resolved Redis
  * client and `ttlSeconds` are captured in the closure.
  *
  * Expiry is owned by the backend's native EX eviction (D-08), so this adapter

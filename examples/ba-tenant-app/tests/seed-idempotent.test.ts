@@ -15,7 +15,7 @@
 // importing lib/auth, which reads it at module-eval time) so the test is deterministic
 // and never pollutes the dev `ba.sqlite`.
 //
-// `any` is permitted ONLY in this test scaffolding per CLAUDE.md.
+// `any` is permitted ONLY in this test scaffolding per CONTRIBUTING.md.
 
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

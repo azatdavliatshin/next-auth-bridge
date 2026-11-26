@@ -12,7 +12,7 @@
 // with `disableRedirect: true` (which returns `{ url }` instead of redirecting) and
 // assert the generated URL carries `prompt=none`.
 //
-// `any` is permitted ONLY in this test scaffolding per CLAUDE.md.
+// `any` is permitted ONLY in this test scaffolding per CONTRIBUTING.md.
 
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

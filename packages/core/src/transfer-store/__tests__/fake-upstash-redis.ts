@@ -12,7 +12,7 @@
 // effective auto-(de)serialization behavior (resolved Open Question 1) — the
 // adapter passes the typed payload straight through, so the fake must too.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 interface FakeEntry {
   value: unknown;
