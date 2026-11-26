@@ -47,7 +47,7 @@ interface StoredEntry {
  * intended for the Vitest bench and as the reference implementation of the
  * store's security invariants (STORE-02).
  *
- * Functional/factory style (no classes — see CLAUDE.md): the `Map`, the resolved
+ * Functional/factory style (no classes — see CONTRIBUTING.md): the `Map`, the resolved
  * `ttlSeconds`, and the `now` clock are captured in the closure, which makes them
  * genuinely unreachable from outside the returned object (stronger encapsulation
  * than `private` fields, which are erased at runtime).

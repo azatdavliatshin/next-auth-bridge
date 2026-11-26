@@ -4,10 +4,10 @@
 // that guards the maintainer's local commits before push (RELEASE-03). This test
 // drives the real hook script through a child process against temp message files
 // and asserts the accept (exit 0) / reject (exit non-zero) / passthrough (exit 0)
-// contract. Per the CLAUDE.md negative-case discipline, every accept case is
+// contract. Per the CONTRIBUTING.md negative-case discipline, every accept case is
 // paired with a reject case.
 //
-// Test scaffolding may relax types/casts per CLAUDE.md.
+// Test scaffolding may relax types/casts per CONTRIBUTING.md.
 
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";

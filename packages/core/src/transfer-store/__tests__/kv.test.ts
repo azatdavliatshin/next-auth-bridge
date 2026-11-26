@@ -15,7 +15,7 @@
 // and typed (proving the SDK auto-(de)serialization path is NOT double-encoded —
 // resolved Open Question 1).
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, expect, it } from "vitest";
 

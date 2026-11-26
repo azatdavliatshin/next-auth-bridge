@@ -31,7 +31,7 @@
 // Response cookies are ALWAYS read via getSetCookie() (array), NEVER
 // .get("Set-Cookie") (RESEARCH Pitfall 1). No real waits/timers.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, expect, it } from "vitest";
 

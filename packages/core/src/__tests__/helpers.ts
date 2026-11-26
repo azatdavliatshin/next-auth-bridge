@@ -17,7 +17,7 @@
 // bench (RESEARCH test mandate; KV is exercised only by the Phase 5 Vercel
 // preview).
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md — these are
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md — these are
 // fixtures, not shipped surface.
 
 import type { VerifySession } from "../types.js";
@@ -72,7 +72,7 @@ export function makeTestStore(
 //
 // These deliberately model only the structural surface the client helpers read,
 // not the full DOM — the package carries no DOM lib (tsconfig `lib: ["ES2022"]`).
-// Casts to `unknown` are permitted test scaffolding (CLAUDE.md).
+// Casts to `unknown` are permitted test scaffolding (CONTRIBUTING.md).
 // ---------------------------------------------------------------------------
 
 /**

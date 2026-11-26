@@ -12,7 +12,7 @@
 // an explicit cookieName override above both — so the later harvest scope is
 // exact, not over-broad.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, expect, it } from "vitest";
 

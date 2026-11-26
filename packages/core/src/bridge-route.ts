@@ -9,7 +9,7 @@
 // THREAT-04 (Spoofing / Elevation — the session gate): `verifySession` runs
 // FIRST and independently. A falsy result → 401 with no body detail. No
 // wrapper/context signal (e.g. `?popup=true`) ever gates the mint — context is
-// UX routing, never a security boundary (CLAUDE.md invariant 4).
+// UX routing, never a security boundary (docs/threat-model.md, THREAT-04).
 //
 // THREAT-05 (Tampering — PKCE non-interference): the harvest matches ONLY the
 // resolved session-token base + numeric chunk suffixes (via harvestSessionChunks

@@ -16,7 +16,7 @@
 // All browser deps are injected (D-12): the flow runs with NO global window and
 // NO real timers, driven by the shared DI fakes (makeFakeOpen / makeFakePopup /
 // makeFakeMessageBus / makeFakeClock). Casts to `unknown` are permitted test
-// scaffolding per CLAUDE.md.
+// scaffolding per CONTRIBUTING.md.
 
 import { describe, it, expect } from "vitest";
 import {

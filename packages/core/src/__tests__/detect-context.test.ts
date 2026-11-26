@@ -14,7 +14,7 @@
 // The detector takes an injected `win` (default `window`), so tests pass a fake
 // window-like and never touch a real global.
 //
-// Test scaffolding may relax to `unknown`/casts per CLAUDE.md.
+// Test scaffolding may relax to `unknown`/casts per CONTRIBUTING.md.
 
 import { describe, it, expect } from "vitest";
 import {
