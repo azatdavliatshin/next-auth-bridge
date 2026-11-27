@@ -12,15 +12,15 @@ There is no `dev` branch. Substantive engineering decisions are recorded in PR d
 
 ## Versioning and releases
 
-Releases use [semantic-release](https://github.com/semantic-release/semantic-release) driven by [Conventional Commits](https://www.conventionalcommits.org/). Every push to `main` runs the release workflow (it can also be started manually). The workflow publishes only when the commits since the last release include a releasing type; otherwise it does nothing. When it does release, it:
+Releases use [semantic-release](https://github.com/semantic-release/semantic-release) driven by [Conventional Commits](https://www.conventionalcommits.org/). Every push to `main` runs the release workflow (it can also be started manually). On every run it checks out the full history, upgrades npm, installs dependencies with `pnpm install --frozen-lockfile`, builds the package and then runs `semantic-release`. Only the release itself is conditional: it happens when the commits since the last release include a releasing type, and otherwise `semantic-release` ends without publishing. When it does release, it:
 
-1. Determines the next semantic version from the commit types since the last release (`feat:` → minor, `fix:` → patch, `BREAKING CHANGE:` in the commit body → major).
+1. Determines the next semantic version from the commit types since the last release, using the default `@semantic-release/commit-analyzer` rules (no `releaseRules` are configured): `feat` → minor; `fix`, `perf` and a revert commit → patch; a breaking change (`BREAKING CHANGE:` footer) → major.
 2. Updates `CHANGELOG.md` and the version in `packages/core/package.json`, and commits both back to `main` with a `chore(release)` commit.
 3. Tags the release (for example `v0.1.0`).
 4. Publishes `next-auth-bridge` to npm.
 5. Creates a GitHub Release with the generated notes.
 
-Use Conventional Commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `style`. Use the `BREAKING CHANGE:` footer for major bumps. Only `feat`, `fix` and `perf` (and breaking changes) release a version; the other types release nothing.
+Use Conventional Commit types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `style`. Use the `BREAKING CHANGE:` footer for major bumps. Commits of any other type release nothing on their own.
 
 Once the hooks are activated (see [Git hooks](#git-hooks)), a commit-msg hook validates that every commit message conforms to the Conventional Commits format. Malformed messages are rejected locally before push, so PRs arrive with a history semantic-release can parse without manual cleanup.
 
